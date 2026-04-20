@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 type Bouquet = {
   id: string;
   title: string;
+  share_code: string;
 };
 
 type FlowerMessage = {
@@ -30,6 +31,8 @@ type Flower = {
 export default function BouquetPage() {
   const supabase = createClient();
   const router = useRouter();
+  const params = useParams();
+  const shareCode = params.shareCode as string;
 
   const totalSlots = 50;
 
@@ -50,7 +53,6 @@ export default function BouquetPage() {
 
   const getFlowerEmoji = (flower: Flower) => {
     const count = flower.messages.length;
-
     if (count === 0) return "🌱";
     if (count <= 2) return "🌿";
     return "🌸";
@@ -72,10 +74,10 @@ export default function BouquetPage() {
 
     setUserId(user.id);
 
-    const { data: existingBouquet, error: bouquetError } = await supabase
+    const { data: bouquetRow, error: bouquetError } = await supabase
       .from("bouquets")
-      .select("id, title")
-      .eq("user_id", user.id)
+      .select("id, title, share_code")
+      .eq("share_code", shareCode)
       .maybeSingle();
 
     if (bouquetError) {
@@ -84,33 +86,18 @@ export default function BouquetPage() {
       return;
     }
 
-    let currentBouquet = existingBouquet;
-
-    if (!currentBouquet) {
-      const { data: newBouquet, error: createBouquetError } = await supabase
-        .from("bouquets")
-        .insert({
-          user_id: user.id,
-          title: "花束",
-        })
-        .select("id, title")
-        .single();
-
-      if (createBouquetError) {
-        setMessage(createBouquetError.message);
-        setLoading(false);
-        return;
-      }
-
-      currentBouquet = newBouquet;
+    if (!bouquetRow) {
+      setMessage("花束が見つかりません。");
+      setLoading(false);
+      return;
     }
 
-    setBouquet(currentBouquet);
+    setBouquet(bouquetRow);
 
     const { data: flowerRows, error: flowerError } = await supabase
       .from("flowers")
       .select("id, bouquet_id, slot_index, seed_text, created_by, created_at")
-      .eq("bouquet_id", currentBouquet.id)
+      .eq("bouquet_id", bouquetRow.id)
       .order("slot_index", { ascending: true });
 
     if (flowerError) {
@@ -120,7 +107,6 @@ export default function BouquetPage() {
     }
 
     const flowerIds = (flowerRows ?? []).map((f) => f.id);
-
     let messageRows: FlowerMessage[] = [];
 
     if (flowerIds.length > 0) {
@@ -150,7 +136,7 @@ export default function BouquetPage() {
 
   useEffect(() => {
     loadBouquetData();
-  }, []);
+  }, [shareCode]);
 
   const handleSlotClick = (index: number) => {
     const flower = flowers.find((f) => f.slot_index === index);

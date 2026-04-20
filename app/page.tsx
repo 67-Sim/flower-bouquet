@@ -37,7 +37,7 @@ export default function Home() {
       return;
     }
 
-    router.push("/bouquet");
+    router.push("/bouquet/main-bouquet");
   };
 
   return (
