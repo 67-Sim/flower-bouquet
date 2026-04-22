@@ -33,7 +33,7 @@ export default function Home() {
     }
 
     localStorage.setItem("logged-in-user-id", trimmedId);
-    router.push("/bouquet");
+    router.push("/bouquet/main-bouquet");
   };
 
   return (
