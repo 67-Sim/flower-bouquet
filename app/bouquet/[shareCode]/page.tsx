@@ -55,70 +55,6 @@ export default function BouquetPage() {
     return "🌸";
   };
 
-  const loadBouquetData = async () => {
-    setLoading(true);
-    setMessage("");
-
-    const { data: bouquetRow, error: bouquetError } = await supabase
-      .from("bouquets")
-      .select("id, title, share_code")
-      .eq("share_code", shareCode)
-      .maybeSingle();
-
-    if (bouquetError) {
-      setMessage(bouquetError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (!bouquetRow) {
-      setMessage("花束が見つかりません。");
-      setLoading(false);
-      return;
-    }
-
-    setBouquet(bouquetRow);
-
-    const { data: flowerRows, error: flowerError } = await supabase
-      .from("flowers")
-      .select("id, bouquet_id, slot_index, seed_text, created_at")
-      .eq("bouquet_id", bouquetRow.id)
-      .order("slot_index", { ascending: true });
-
-    if (flowerError) {
-      setMessage(flowerError.message);
-      setLoading(false);
-      return;
-    }
-
-    const flowerIds = (flowerRows ?? []).map((f) => f.id);
-    let messageRows: FlowerMessage[] = [];
-
-    if (flowerIds.length > 0) {
-      const { data: msgData, error: msgError } = await supabase
-        .from("flower_messages")
-        .select("id, flower_id, content, created_at")
-        .in("flower_id", flowerIds)
-        .order("created_at", { ascending: true });
-
-      if (msgError) {
-        setMessage(msgError.message);
-        setLoading(false);
-        return;
-      }
-
-      messageRows = msgData ?? [];
-    }
-
-    const mergedFlowers: Flower[] = (flowerRows ?? []).map((flower) => ({
-      ...flower,
-      messages: messageRows.filter((m) => m.flower_id === flower.id),
-    }));
-
-    setFlowers(mergedFlowers);
-    setLoading(false);
-  };
-
   useEffect(() => {
     const allowed = localStorage.getItem(`bouquet-access-${shareCode}`);
 
@@ -127,8 +63,72 @@ export default function BouquetPage() {
       return;
     }
 
+    const loadBouquetData = async () => {
+      setLoading(true);
+      setMessage("");
+
+      const { data: bouquetRow, error: bouquetError } = await supabase
+        .from("bouquets")
+        .select("id, title, share_code")
+        .eq("share_code", shareCode)
+        .maybeSingle();
+
+      if (bouquetError) {
+        setMessage(bouquetError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!bouquetRow) {
+        setMessage("花束が見つかりません。");
+        setLoading(false);
+        return;
+      }
+
+      setBouquet(bouquetRow);
+
+      const { data: flowerRows, error: flowerError } = await supabase
+        .from("flowers")
+        .select("id, bouquet_id, slot_index, seed_text, created_at")
+        .eq("bouquet_id", bouquetRow.id)
+        .order("slot_index", { ascending: true });
+
+      if (flowerError) {
+        setMessage(flowerError.message);
+        setLoading(false);
+        return;
+      }
+
+      const flowerIds = (flowerRows ?? []).map((f) => f.id);
+      let messageRows: FlowerMessage[] = [];
+
+      if (flowerIds.length > 0) {
+        const { data: msgData, error: msgError } = await supabase
+          .from("flower_messages")
+          .select("id, flower_id, content, created_at")
+          .in("flower_id", flowerIds)
+          .order("created_at", { ascending: true });
+
+        if (msgError) {
+          setMessage(msgError.message);
+          setLoading(false);
+          return;
+        }
+
+        messageRows = msgData ?? [];
+      }
+
+      const mergedFlowers: Flower[] = (flowerRows ?? []).map((flower) => ({
+        ...flower,
+        messages: messageRows.filter((m) => m.flower_id === flower.id),
+      }));
+
+      setFlowers(mergedFlowers);
+      setLoading(false);
+    };
+
     loadBouquetData();
-  }, [shareCode]);
+  }, [router, shareCode, supabase]);
 
   const handleSlotClick = (index: number) => {
     const flower = flowers.find((f) => f.slot_index === index);
