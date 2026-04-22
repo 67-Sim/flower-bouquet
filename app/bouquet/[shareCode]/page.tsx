@@ -14,7 +14,6 @@ type FlowerMessage = {
   id: string;
   flower_id: string;
   content: string;
-  user_id: string | null;
   created_at: string;
 };
 
@@ -23,7 +22,6 @@ type Flower = {
   bouquet_id: string;
   slot_index: number;
   seed_text: string;
-  created_by: string | null;
   created_at?: string;
   messages: FlowerMessage[];
 };
@@ -36,7 +34,6 @@ export default function BouquetPage() {
 
   const totalSlots = 50;
 
-  const [userId, setUserId] = useState<string | null>(null);
   const [bouquet, setBouquet] = useState<Bouquet | null>(null);
   const [flowers, setFlowers] = useState<Flower[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
@@ -62,18 +59,6 @@ export default function BouquetPage() {
     setLoading(true);
     setMessage("");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      router.push("/");
-      return;
-    }
-
-    setUserId(user.id);
-
     const { data: bouquetRow, error: bouquetError } = await supabase
       .from("bouquets")
       .select("id, title, share_code")
@@ -96,7 +81,7 @@ export default function BouquetPage() {
 
     const { data: flowerRows, error: flowerError } = await supabase
       .from("flowers")
-      .select("id, bouquet_id, slot_index, seed_text, created_by, created_at")
+      .select("id, bouquet_id, slot_index, seed_text, created_at")
       .eq("bouquet_id", bouquetRow.id)
       .order("slot_index", { ascending: true });
 
@@ -112,7 +97,7 @@ export default function BouquetPage() {
     if (flowerIds.length > 0) {
       const { data: msgData, error: msgError } = await supabase
         .from("flower_messages")
-        .select("id, flower_id, content, user_id, created_at")
+        .select("id, flower_id, content, created_at")
         .in("flower_id", flowerIds)
         .order("created_at", { ascending: true });
 
@@ -135,6 +120,13 @@ export default function BouquetPage() {
   };
 
   useEffect(() => {
+    const allowed = localStorage.getItem(`bouquet-access-${shareCode}`);
+
+    if (!allowed) {
+      router.push("/");
+      return;
+    }
+
     loadBouquetData();
   }, [shareCode]);
 
@@ -152,7 +144,7 @@ export default function BouquetPage() {
   };
 
   const handleCreateFlower = async () => {
-    if (!bouquet || !userId || selectedSlot === null) return;
+    if (!bouquet || selectedSlot === null) return;
     if (!createText.trim()) return;
 
     const exists = flowers.some((f) => f.slot_index === selectedSlot);
@@ -167,9 +159,8 @@ export default function BouquetPage() {
         bouquet_id: bouquet.id,
         slot_index: selectedSlot,
         seed_text: createText,
-        created_by: userId,
       })
-      .select("id, bouquet_id, slot_index, seed_text, created_by, created_at")
+      .select("id, bouquet_id, slot_index, seed_text, created_at")
       .single();
 
     if (error) {
@@ -183,7 +174,7 @@ export default function BouquetPage() {
   };
 
   const handleAddMessage = async () => {
-    if (!selectedFlower || !userId) return;
+    if (!selectedFlower) return;
     if (!messageText.trim()) return;
 
     const { data, error } = await supabase
@@ -191,9 +182,8 @@ export default function BouquetPage() {
       .insert({
         flower_id: selectedFlower.id,
         content: messageText,
-        user_id: userId,
       })
-      .select("id, flower_id, content, user_id, created_at")
+      .select("id, flower_id, content, created_at")
       .single();
 
     if (error) {
@@ -214,8 +204,8 @@ export default function BouquetPage() {
     setMessageText("");
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleExit = () => {
+    localStorage.removeItem(`bouquet-access-${shareCode}`);
     router.push("/");
   };
 
@@ -261,7 +251,7 @@ export default function BouquetPage() {
         </h1>
 
         <button
-          onClick={handleLogout}
+          onClick={handleExit}
           style={{
             padding: "10px 14px",
             borderRadius: "10px",
@@ -270,7 +260,7 @@ export default function BouquetPage() {
             cursor: "pointer",
           }}
         >
-          ログアウト
+          戻る
         </button>
       </div>
 
