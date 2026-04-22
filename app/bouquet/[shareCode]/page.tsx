@@ -22,9 +22,21 @@ type Flower = {
   bouquet_id: string;
   slot_index: number;
   seed_text: string;
+  flower_color: string;
   created_at?: string;
   messages: FlowerMessage[];
 };
+
+const FLOWER_COLORS = [
+  "#f8b4d9",
+  "#f9c74f",
+  "#90be6d",
+  "#7bdff2",
+  "#cdb4db",
+  "#f28482",
+  "#84a59d",
+  "#ffb703",
+];
 
 export default function BouquetPage() {
   const supabase = createClient();
@@ -39,6 +51,7 @@ export default function BouquetPage() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [openedFlowerIndex, setOpenedFlowerIndex] = useState<number | null>(null);
   const [createText, setCreateText] = useState("");
+  const [selectedColor, setSelectedColor] = useState(FLOWER_COLORS[0]);
   const [messageText, setMessageText] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -47,13 +60,6 @@ export default function BouquetPage() {
     if (openedFlowerIndex === null) return null;
     return flowers.find((flower) => flower.slot_index === openedFlowerIndex) ?? null;
   }, [openedFlowerIndex, flowers]);
-
-  const getFlowerEmoji = (flower: Flower) => {
-    const count = flower.messages.length;
-    if (count === 0) return "🌱";
-    if (count <= 2) return "🌿";
-    return "🌸";
-  };
 
   useEffect(() => {
     const allowed = localStorage.getItem(`bouquet-access-${shareCode}`);
@@ -89,7 +95,7 @@ export default function BouquetPage() {
 
       const { data: flowerRows, error: flowerError } = await supabase
         .from("flowers")
-        .select("id, bouquet_id, slot_index, seed_text, created_at")
+        .select("id, bouquet_id, slot_index, seed_text, flower_color, created_at")
         .eq("bouquet_id", bouquetRow.id)
         .order("slot_index", { ascending: true });
 
@@ -120,6 +126,7 @@ export default function BouquetPage() {
 
       const mergedFlowers: Flower[] = (flowerRows ?? []).map((flower) => ({
         ...flower,
+        flower_color: flower.flower_color || FLOWER_COLORS[0],
         messages: messageRows.filter((m) => m.flower_id === flower.id),
       }));
 
@@ -141,6 +148,7 @@ export default function BouquetPage() {
 
     setSelectedSlot(index);
     setCreateText("");
+    setSelectedColor(FLOWER_COLORS[0]);
   };
 
   const handleCreateFlower = async () => {
@@ -159,8 +167,9 @@ export default function BouquetPage() {
         bouquet_id: bouquet.id,
         slot_index: selectedSlot,
         seed_text: createText,
+        flower_color: selectedColor,
       })
-      .select("id, bouquet_id, slot_index, seed_text, created_at")
+      .select("id, bouquet_id, slot_index, seed_text, flower_color, created_at")
       .single();
 
     if (error) {
@@ -171,6 +180,7 @@ export default function BouquetPage() {
     setFlowers((prev) => [...prev, { ...data, messages: [] }]);
     setSelectedSlot(null);
     setCreateText("");
+    setSelectedColor(FLOWER_COLORS[0]);
   };
 
   const handleAddMessage = async () => {
@@ -207,6 +217,57 @@ export default function BouquetPage() {
   const handleExit = () => {
     localStorage.removeItem(`bouquet-access-${shareCode}`);
     router.push("/");
+  };
+
+  const renderFlower = (flower: Flower) => {
+    const count = flower.messages.length;
+
+    const size = count === 0 ? 56 : count <= 2 ? 62 : 68;
+    const petalCount = count === 0 ? 4 : count <= 2 ? 6 : 8;
+
+    return (
+      <div
+        style={{
+          position: "relative",
+          width: `${size}px`,
+          height: `${size}px`,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        {Array.from({ length: petalCount }).map((_, i) => {
+          const angle = (360 / petalCount) * i;
+          return (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                width: count === 0 ? "18px" : "20px",
+                height: count === 0 ? "18px" : "20px",
+                borderRadius: "50%",
+                backgroundColor: flower.flower_color,
+                transform: `rotate(${angle}deg) translateY(-${count === 0 ? 18 : 22}px)`,
+                transformOrigin: "center",
+                opacity: 0.95,
+              }}
+            />
+          );
+        })}
+
+        <div
+          style={{
+            width: count === 0 ? "16px" : "18px",
+            height: count === 0 ? "16px" : "18px",
+            borderRadius: "50%",
+            backgroundColor: "#ffe8a3",
+            position: "relative",
+            zIndex: 2,
+            border: "1px solid rgba(0,0,0,0.08)",
+          }}
+        />
+      </div>
+    );
   };
 
   if (loading) {
@@ -313,9 +374,13 @@ export default function BouquetPage() {
                 backgroundColor: "#fffaf5",
                 fontSize: "24px",
                 cursor: "pointer",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: 0,
               }}
             >
-              {flower ? getFlowerEmoji(flower) : "+"}
+              {flower ? renderFlower(flower) : "+"}
             </button>
           );
         })}
@@ -382,8 +447,47 @@ export default function BouquetPage() {
                 resize: "none",
                 outline: "none",
                 boxSizing: "border-box",
+                marginBottom: "14px",
               }}
             />
+
+            <div style={{ marginBottom: "14px" }}>
+              <p
+                style={{
+                  margin: "0 0 8px 0",
+                  fontSize: "14px",
+                  color: "#6b5b4d",
+                }}
+              >
+                花の色
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: "10px",
+                }}
+              >
+                {FLOWER_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setSelectedColor(color)}
+                    style={{
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      borderRadius: "50%",
+                      border:
+                        selectedColor === color
+                          ? "3px solid #6b5b4d"
+                          : "2px solid #eadfd3",
+                      backgroundColor: color,
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
 
             <div
               style={{
@@ -453,11 +557,12 @@ export default function BouquetPage() {
           >
             <div
               style={{
-                fontSize: "36px",
+                display: "flex",
+                justifyContent: "center",
                 marginBottom: "10px",
               }}
             >
-              {getFlowerEmoji(selectedFlower)}
+              {renderFlower(selectedFlower)}
             </div>
 
             <h2
