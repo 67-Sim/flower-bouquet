@@ -1,30 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
-type Bouquet = {
+type SeedComment = {
   id: string;
-  title: string;
-  share_code: string;
-};
-
-type FlowerMessage = {
-  id: string;
-  flower_id: string;
+  seed_id: string;
+  author_id: string | null;
   content: string;
   created_at: string;
 };
 
-type Flower = {
+type BouquetSeed = {
   id: string;
-  bouquet_id: string;
-  slot_index: number;
-  seed_text: string;
-  flower_color: string;
-  created_at?: string;
-  messages: FlowerMessage[];
+  owner_id: string;
+  slot_number: number;
+  title: string | null;
+  flower_color: string | null;
+  created_at: string;
+  comments: SeedComment[];
 };
 
 const FLOWER_COLORS = [
@@ -38,236 +33,295 @@ const FLOWER_COLORS = [
   "#ffb703",
 ];
 
+const SLOT_NUMBERS = Array.from({ length: 40 }, (_, i) => 5261 + i);
+
 export default function BouquetPage() {
   const supabase = createClient();
   const router = useRouter();
-  const params = useParams();
-  const shareCode = params.shareCode as string;
 
-  const totalSlots = 50;
-
-  const [bouquet, setBouquet] = useState<Bouquet | null>(null);
-  const [flowers, setFlowers] = useState<Flower[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
-  const [openedFlowerIndex, setOpenedFlowerIndex] = useState<number | null>(null);
-  const [createText, setCreateText] = useState("");
-  const [selectedColor, setSelectedColor] = useState(FLOWER_COLORS[0]);
-  const [messageText, setMessageText] = useState("");
+  const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
+  const [seeds, setSeeds] = useState<BouquetSeed[]>([]);
+  const [openedSlotNumber, setOpenedSlotNumber] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editColor, setEditColor] = useState(FLOWER_COLORS[0]);
+  const [commentText, setCommentText] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const selectedFlower = useMemo(() => {
-    if (openedFlowerIndex === null) return null;
-    return flowers.find((flower) => flower.slot_index === openedFlowerIndex) ?? null;
-  }, [openedFlowerIndex, flowers]);
+  const openedSeed = useMemo(() => {
+    if (openedSlotNumber === null) return null;
+    return seeds.find((seed) => seed.slot_number === openedSlotNumber) ?? null;
+  }, [openedSlotNumber, seeds]);
 
-  useEffect(() => {
-    const allowed = localStorage.getItem(`bouquet-access-${shareCode}`);
+  const isOwner = openedSeed && loggedInUserId === openedSeed.owner_id;
 
-    if (!allowed) {
-      router.push("/");
-      return;
-    }
-
-    const loadBouquetData = async () => {
-      setLoading(true);
-      setMessage("");
-
-      const { data: bouquetRow, error: bouquetError } = await supabase
-        .from("bouquets")
-        .select("id, title, share_code")
-        .eq("share_code", shareCode)
-        .maybeSingle();
-
-      if (bouquetError) {
-        setMessage(bouquetError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!bouquetRow) {
-        setMessage("花束が見つかりません。");
-        setLoading(false);
-        return;
-      }
-
-      setBouquet(bouquetRow);
-
-      const { data: flowerRows, error: flowerError } = await supabase
-        .from("flowers")
-        .select("id, bouquet_id, slot_index, seed_text, flower_color, created_at")
-        .eq("bouquet_id", bouquetRow.id)
-        .order("slot_index", { ascending: true });
-
-      if (flowerError) {
-        setMessage(flowerError.message);
-        setLoading(false);
-        return;
-      }
-
-      const flowerIds = (flowerRows ?? []).map((f) => f.id);
-      let messageRows: FlowerMessage[] = [];
-
-      if (flowerIds.length > 0) {
-        const { data: msgData, error: msgError } = await supabase
-          .from("flower_messages")
-          .select("id, flower_id, content, created_at")
-          .in("flower_id", flowerIds)
-          .order("created_at", { ascending: true });
-
-        if (msgError) {
-          setMessage(msgError.message);
-          setLoading(false);
-          return;
-        }
-
-        messageRows = msgData ?? [];
-      }
-
-      const mergedFlowers: Flower[] = (flowerRows ?? []).map((flower) => ({
-        ...flower,
-        flower_color: flower.flower_color || FLOWER_COLORS[0],
-        messages: messageRows.filter((m) => m.flower_id === flower.id),
-      }));
-
-      setFlowers(mergedFlowers);
-      setLoading(false);
-    };
-
-    loadBouquetData();
-  }, [router, shareCode, supabase]);
-
-  const handleSlotClick = (index: number) => {
-    const flower = flowers.find((f) => f.slot_index === index);
-
-    if (flower) {
-      setOpenedFlowerIndex(index);
-      setMessageText("");
-      return;
-    }
-
-    setSelectedSlot(index);
-    setCreateText("");
-    setSelectedColor(FLOWER_COLORS[0]);
+  const getFlowerStage = (commentCount: number) => {
+    if (commentCount === 0) return "sprout";
+    if (commentCount <= 2) return "leaf";
+    return "flower";
   };
 
-  const handleCreateFlower = async () => {
-    if (!bouquet || selectedSlot === null) return;
-    if (!createText.trim()) return;
+  const renderFlower = (seed: BouquetSeed) => {
+    const color = seed.flower_color || FLOWER_COLORS[0];
+    const count = seed.comments.length;
+    const stage = getFlowerStage(count);
 
-    const exists = flowers.some((f) => f.slot_index === selectedSlot);
-    if (exists) {
-      setMessage("その場所にはすでに花があります。");
-      return;
+    if (stage === "sprout") {
+      return (
+        <div
+          style={{
+            width: "18px",
+            height: "28px",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: "8px",
+              bottom: "0",
+              width: "2px",
+              height: "18px",
+              backgroundColor: "#7aa36f",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "2px",
+              top: "0",
+              width: "10px",
+              height: "12px",
+              borderRadius: "50% 50% 50% 0",
+              backgroundColor: color,
+              transform: "rotate(-25deg)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              right: "0",
+              top: "0",
+              width: "10px",
+              height: "12px",
+              borderRadius: "50% 50% 0 50%",
+              backgroundColor: color,
+              transform: "rotate(25deg)",
+            }}
+          />
+        </div>
+      );
     }
 
-    const { data, error } = await supabase
-      .from("flowers")
-      .insert({
-        bouquet_id: bouquet.id,
-        slot_index: selectedSlot,
-        seed_text: createText,
-        flower_color: selectedColor,
-      })
-      .select("id, bouquet_id, slot_index, seed_text, flower_color, created_at")
-      .single();
-
-    if (error) {
-      setMessage(error.message);
-      return;
+    if (stage === "leaf") {
+      return (
+        <div
+          style={{
+            position: "relative",
+            width: "46px",
+            height: "46px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          {Array.from({ length: 6 }).map((_, i) => {
+            const angle = (360 / 6) * i;
+            return (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "50%",
+                  backgroundColor: color,
+                  transform: `rotate(${angle}deg) translateY(-14px)`,
+                }}
+              />
+            );
+          })}
+          <div
+            style={{
+              width: "14px",
+              height: "14px",
+              borderRadius: "50%",
+              backgroundColor: "#ffe8a3",
+              position: "relative",
+              zIndex: 2,
+            }}
+          />
+        </div>
+      );
     }
-
-    setFlowers((prev) => [...prev, { ...data, messages: [] }]);
-    setSelectedSlot(null);
-    setCreateText("");
-    setSelectedColor(FLOWER_COLORS[0]);
-  };
-
-  const handleAddMessage = async () => {
-    if (!selectedFlower) return;
-    if (!messageText.trim()) return;
-
-    const { data, error } = await supabase
-      .from("flower_messages")
-      .insert({
-        flower_id: selectedFlower.id,
-        content: messageText,
-      })
-      .select("id, flower_id, content, created_at")
-      .single();
-
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-
-    setFlowers((prev) =>
-      prev.map((flower) => {
-        if (flower.id !== selectedFlower.id) return flower;
-        return {
-          ...flower,
-          messages: [...flower.messages, data],
-        };
-      })
-    );
-
-    setMessageText("");
-  };
-
-  const handleExit = () => {
-    localStorage.removeItem(`bouquet-access-${shareCode}`);
-    router.push("/");
-  };
-
-  const renderFlower = (flower: Flower) => {
-    const count = flower.messages.length;
-
-    const size = count === 0 ? 56 : count <= 2 ? 62 : 68;
-    const petalCount = count === 0 ? 4 : count <= 2 ? 6 : 8;
 
     return (
       <div
         style={{
           position: "relative",
-          width: `${size}px`,
-          height: `${size}px`,
+          width: "54px",
+          height: "54px",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        {Array.from({ length: petalCount }).map((_, i) => {
-          const angle = (360 / petalCount) * i;
+        {Array.from({ length: 8 }).map((_, i) => {
+          const angle = (360 / 8) * i;
           return (
             <div
               key={i}
               style={{
                 position: "absolute",
-                width: count === 0 ? "18px" : "20px",
-                height: count === 0 ? "18px" : "20px",
+                width: "16px",
+                height: "16px",
                 borderRadius: "50%",
-                backgroundColor: flower.flower_color,
-                transform: `rotate(${angle}deg) translateY(-${count === 0 ? 18 : 22}px)`,
-                transformOrigin: "center",
-                opacity: 0.95,
+                backgroundColor: color,
+                transform: `rotate(${angle}deg) translateY(-18px)`,
               }}
             />
           );
         })}
-
         <div
           style={{
-            width: count === 0 ? "16px" : "18px",
-            height: count === 0 ? "16px" : "18px",
+            width: "16px",
+            height: "16px",
             borderRadius: "50%",
             backgroundColor: "#ffe8a3",
             position: "relative",
             zIndex: 2,
-            border: "1px solid rgba(0,0,0,0.08)",
           }}
         />
       </div>
     );
+  };
+
+  const loadSeeds = async () => {
+    setLoading(true);
+    setMessage("");
+
+    const currentUserId = localStorage.getItem("logged-in-user-id");
+
+    if (!currentUserId) {
+      router.push("/");
+      return;
+    }
+
+    setLoggedInUserId(currentUserId);
+
+    const { data: seedRows, error: seedError } = await supabase
+      .from("bouquet_seeds")
+      .select("id, owner_id, slot_number, title, flower_color, created_at")
+      .order("slot_number", { ascending: true });
+
+    if (seedError) {
+      setMessage(seedError.message);
+      setLoading(false);
+      return;
+    }
+
+    const seedIds = (seedRows ?? []).map((seed) => seed.id);
+
+    let commentRows: SeedComment[] = [];
+
+    if (seedIds.length > 0) {
+      const { data: commentData, error: commentError } = await supabase
+        .from("seed_comments")
+        .select("id, seed_id, author_id, content, created_at")
+        .in("seed_id", seedIds)
+        .order("created_at", { ascending: true });
+
+      if (commentError) {
+        setMessage(commentError.message);
+        setLoading(false);
+        return;
+      }
+
+      commentRows = commentData ?? [];
+    }
+
+    const mergedSeeds: BouquetSeed[] = (seedRows ?? []).map((seed) => ({
+      ...seed,
+      comments: commentRows.filter((comment) => comment.seed_id === seed.id),
+    }));
+
+    setSeeds(mergedSeeds);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadSeeds();
+  }, []);
+
+  const handleSlotClick = (slotNumber: number) => {
+    const seed = seeds.find((item) => item.slot_number === slotNumber);
+    if (!seed) return;
+
+    setOpenedSlotNumber(slotNumber);
+    setCommentText("");
+    setEditTitle(seed.title || "");
+    setEditColor(seed.flower_color || FLOWER_COLORS[0]);
+  };
+
+  const handleSaveSeedSettings = async () => {
+    if (!openedSeed || !loggedInUserId) return;
+    if (openedSeed.owner_id !== loggedInUserId) return;
+
+    const { error } = await supabase
+      .from("bouquet_seeds")
+      .update({
+        title: editTitle,
+        flower_color: editColor,
+      })
+      .eq("id", openedSeed.id);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setSeeds((prev) =>
+      prev.map((seed) =>
+        seed.id === openedSeed.id
+          ? { ...seed, title: editTitle, flower_color: editColor }
+          : seed
+      )
+    );
+  };
+
+  const handleAddComment = async () => {
+    if (!openedSeed || !loggedInUserId) return;
+    if (!commentText.trim()) return;
+
+    const { data, error } = await supabase
+      .from("seed_comments")
+      .insert({
+        seed_id: openedSeed.id,
+        author_id: loggedInUserId,
+        content: commentText,
+      })
+      .select("id, seed_id, author_id, content, created_at")
+      .single();
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setSeeds((prev) =>
+      prev.map((seed) =>
+        seed.id === openedSeed.id
+          ? { ...seed, comments: [...seed.comments, data] }
+          : seed
+      )
+    );
+
+    setCommentText("");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("logged-in-user-id");
+    router.push("/");
   };
 
   if (loading) {
@@ -316,11 +370,11 @@ export default function BouquetPage() {
             lineHeight: 1.2,
           }}
         >
-          🌸 {bouquet?.title ?? "花束"}
+          🌸 花束
         </h1>
 
         <button
-          onClick={handleExit}
+          onClick={handleLogout}
           style={{
             padding: "8px 12px",
             borderRadius: "10px",
@@ -359,179 +413,48 @@ export default function BouquetPage() {
           gap: "10px",
         }}
       >
-        {Array.from({ length: totalSlots }).map((_, index) => {
-          const flower = flowers.find((f) => f.slot_index === index);
+        {SLOT_NUMBERS.map((slotNumber) => {
+          const seed = seeds.find((item) => item.slot_number === slotNumber);
 
           return (
             <button
-              key={index}
-              onClick={() => handleSlotClick(index)}
+              key={slotNumber}
+              onClick={() => handleSlotClick(slotNumber)}
               style={{
                 width: "100%",
                 aspectRatio: "1 / 1",
                 borderRadius: "50%",
                 border: "2px dashed #c9b8a6",
                 backgroundColor: "#fffaf5",
-                fontSize: "24px",
                 cursor: "pointer",
                 display: "flex",
+                flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
-                padding: 0,
+                padding: "4px",
+                gap: "2px",
               }}
             >
-              {flower ? renderFlower(flower) : "+"}
+              {seed ? renderFlower(seed) : null}
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: "#6b5b4d",
+                  lineHeight: 1.1,
+                }}
+              >
+                {slotNumber}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {selectedSlot !== null && (
-        <div
-          onClick={() => setSelectedSlot(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.35)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "16px",
-            zIndex: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "360px",
-              backgroundColor: "#fffaf5",
-              borderRadius: "18px",
-              padding: "18px",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "22px",
-                marginTop: 0,
-                marginBottom: "10px",
-                lineHeight: 1.3,
-              }}
-            >
-              新しい花を作る
-            </h2>
-
-            <p
-              style={{
-                marginBottom: "12px",
-                color: "#6b5b4d",
-                fontSize: "14px",
-                lineHeight: 1.5,
-              }}
-            >
-              スロット {selectedSlot + 1} に植える言葉を書いてください。
-            </p>
-
-            <textarea
-              value={createText}
-              onChange={(e) => setCreateText(e.target.value)}
-              placeholder="言葉を入力してください"
-              style={{
-                width: "100%",
-                minHeight: "96px",
-                borderRadius: "12px",
-                border: "1px solid #d8cbbd",
-                padding: "12px",
-                fontSize: "16px",
-                resize: "none",
-                outline: "none",
-                boxSizing: "border-box",
-                marginBottom: "14px",
-              }}
-            />
-
-            <div style={{ marginBottom: "14px" }}>
-              <p
-                style={{
-                  margin: "0 0 8px 0",
-                  fontSize: "14px",
-                  color: "#6b5b4d",
-                }}
-              >
-                花の色
-              </p>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: "10px",
-                }}
-              >
-                {FLOWER_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => setSelectedColor(color)}
-                    style={{
-                      width: "100%",
-                      aspectRatio: "1 / 1",
-                      borderRadius: "50%",
-                      border:
-                        selectedColor === color
-                          ? "3px solid #6b5b4d"
-                          : "2px solid #eadfd3",
-                      backgroundColor: color,
-                      cursor: "pointer",
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "8px",
-                marginTop: "14px",
-              }}
-            >
-              <button
-                onClick={() => setSelectedSlot(null)}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: "10px",
-                  border: "1px solid #d8cbbd",
-                  backgroundColor: "white",
-                  cursor: "pointer",
-                }}
-              >
-                キャンセル
-              </button>
-
-              <button
-                onClick={handleCreateFlower}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: "10px",
-                  border: "none",
-                  backgroundColor: "#e7c8d8",
-                  cursor: "pointer",
-                }}
-              >
-                作成
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedFlower && (
+      {openedSeed && (
         <div
           onClick={() => {
-            setOpenedFlowerIndex(null);
-            setMessageText("");
+            setOpenedSlotNumber(null);
+            setCommentText("");
           }}
           style={{
             position: "fixed",
@@ -562,34 +485,104 @@ export default function BouquetPage() {
                 marginBottom: "10px",
               }}
             >
-              {renderFlower(selectedFlower)}
+              {renderFlower(openedSeed)}
             </div>
-
-            <h2
-              style={{
-                fontSize: "22px",
-                marginTop: 0,
-                marginBottom: "8px",
-                lineHeight: 1.3,
-              }}
-            >
-              花のことば
-            </h2>
 
             <p
               style={{
-                backgroundColor: "#fff",
-                border: "1px solid #eadfd3",
-                borderRadius: "12px",
-                padding: "12px",
-                marginBottom: "14px",
-                lineHeight: 1.6,
-                fontSize: "14px",
-                wordBreak: "break-word",
+                fontSize: "13px",
+                color: "#7a6b5d",
+                marginTop: 0,
+                marginBottom: "8px",
+                textAlign: "center",
               }}
             >
-              {selectedFlower.seed_text}
+              {openedSeed.slot_number}番の種
             </p>
+
+            <h2
+              style={{
+                fontSize: "20px",
+                marginTop: 0,
+                marginBottom: "10px",
+                lineHeight: 1.3,
+              }}
+            >
+              {openedSeed.title?.trim() || "まだタイトルがありません"}
+            </h2>
+
+            {isOwner ? (
+              <>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="タイトルを入力してください"
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    marginBottom: "12px",
+                    borderRadius: "10px",
+                    border: "1px solid #d8cbbd",
+                    boxSizing: "border-box",
+                    fontSize: "15px",
+                  }}
+                />
+
+                <div style={{ marginBottom: "12px" }}>
+                  <p
+                    style={{
+                      margin: "0 0 8px 0",
+                      fontSize: "14px",
+                      color: "#6b5b4d",
+                    }}
+                  >
+                    花の色
+                  </p>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, 1fr)",
+                      gap: "10px",
+                    }}
+                  >
+                    {FLOWER_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setEditColor(color)}
+                        style={{
+                          width: "100%",
+                          aspectRatio: "1 / 1",
+                          borderRadius: "50%",
+                          border:
+                            editColor === color
+                              ? "3px solid #6b5b4d"
+                              : "2px solid #eadfd3",
+                          backgroundColor: color,
+                          cursor: "pointer",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSaveSeedSettings}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    marginBottom: "16px",
+                    borderRadius: "10px",
+                    border: "none",
+                    backgroundColor: "#e7c8d8",
+                    cursor: "pointer",
+                  }}
+                >
+                  自分の種を保存
+                </button>
+              </>
+            ) : null}
 
             <h3
               style={{
@@ -598,54 +591,68 @@ export default function BouquetPage() {
                 marginBottom: "10px",
               }}
             >
-              メッセージ
+              コメント
             </h3>
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                marginBottom: "14px",
-                maxHeight: "160px",
-                overflowY: "auto",
-              }}
-            >
-              {selectedFlower.messages.length === 0 ? (
-                <p
-                  style={{
-                    color: "#7a6b5d",
-                    fontSize: "14px",
-                    lineHeight: 1.5,
-                    margin: 0,
-                  }}
-                >
-                  まだメッセージはありません。
-                </p>
-              ) : (
-                selectedFlower.messages.map((msg) => (
-                  <div
-                    key={msg.id}
+            {isOwner ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  marginBottom: "14px",
+                  maxHeight: "160px",
+                  overflowY: "auto",
+                }}
+              >
+                {openedSeed.comments.length === 0 ? (
+                  <p
                     style={{
-                      backgroundColor: "#fff",
-                      border: "1px solid #eadfd3",
-                      borderRadius: "12px",
-                      padding: "10px 12px",
-                      lineHeight: 1.5,
+                      color: "#7a6b5d",
                       fontSize: "14px",
-                      wordBreak: "break-word",
+                      lineHeight: 1.5,
+                      margin: 0,
                     }}
                   >
-                    {msg.content}
-                  </div>
-                ))
-              )}
-            </div>
+                    まだコメントはありません。
+                  </p>
+                ) : (
+                  openedSeed.comments.map((comment) => (
+                    <div
+                      key={comment.id}
+                      style={{
+                        backgroundColor: "#fff",
+                        border: "1px solid #eadfd3",
+                        borderRadius: "12px",
+                        padding: "10px 12px",
+                        lineHeight: 1.5,
+                        fontSize: "14px",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {comment.content}
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <p
+                style={{
+                  color: "#7a6b5d",
+                  fontSize: "14px",
+                  lineHeight: 1.5,
+                  marginTop: 0,
+                  marginBottom: "14px",
+                }}
+              >
+                コメント数：{openedSeed.comments.length}
+              </p>
+            )}
 
             <textarea
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              placeholder="この花にメッセージを書いてください"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="この種にコメントを書いてください"
               style={{
                 width: "100%",
                 minHeight: "90px",
@@ -669,8 +676,8 @@ export default function BouquetPage() {
             >
               <button
                 onClick={() => {
-                  setOpenedFlowerIndex(null);
-                  setMessageText("");
+                  setOpenedSlotNumber(null);
+                  setCommentText("");
                 }}
                 style={{
                   padding: "10px 14px",
@@ -684,7 +691,7 @@ export default function BouquetPage() {
               </button>
 
               <button
-                onClick={handleAddMessage}
+                onClick={handleAddComment}
                 style={{
                   padding: "10px 14px",
                   borderRadius: "10px",

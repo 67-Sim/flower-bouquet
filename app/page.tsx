@@ -6,23 +6,34 @@ import { useRouter } from "next/navigation";
 export default function Home() {
   const router = useRouter();
 
-  const [shareCode, setShareCode] = useState("main-bouquet");
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleEnter = () => {
-    if (!shareCode.trim()) {
-      setMessage("花束コードを入力してください。");
+  const handleLogin = () => {
+    const trimmedId = userId.trim();
+
+    if (!/^\d{4}$/.test(trimmedId)) {
+      setMessage("IDは4桁の番号を入力してください。");
       return;
     }
 
-    if (password !== "comany67") {
+    const idNumber = Number(trimmedId);
+
+    if (idNumber < 5261 || idNumber > 5300) {
+      setMessage("IDは5261から5300までです。");
+      return;
+    }
+
+    const expectedPassword = `00${trimmedId}`;
+
+    if (password !== expectedPassword) {
       setMessage("パスワードが違います。");
       return;
     }
 
-    localStorage.setItem(`bouquet-access-${shareCode}`, "true");
-    router.push(`/bouquet/${shareCode}`);
+    localStorage.setItem("logged-in-user-id", trimmedId);
+    router.push("/bouquet");
   };
 
   return (
@@ -59,9 +70,9 @@ export default function Home() {
 
         <input
           type="text"
-          placeholder="花束コード"
-          value={shareCode}
-          onChange={(e) => setShareCode(e.target.value)}
+          placeholder="ID（5261〜5300）"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
           style={{
             width: "100%",
             padding: "12px",
@@ -79,7 +90,7 @@ export default function Home() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleEnter();
+            if (e.key === "Enter") handleLogin();
           }}
           style={{
             width: "100%",
@@ -93,7 +104,7 @@ export default function Home() {
         />
 
         <button
-          onClick={handleEnter}
+          onClick={handleLogin}
           style={{
             width: "100%",
             padding: "12px",
@@ -104,7 +115,7 @@ export default function Home() {
             fontSize: "16px",
           }}
         >
-          入場
+          ログイン
         </button>
 
         {message && (
