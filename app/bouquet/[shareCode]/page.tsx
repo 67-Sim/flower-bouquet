@@ -218,6 +218,7 @@ export default function BouquetPage() {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
+          padding: "20px 14px",
         }}
       >
         読み込み中...
@@ -233,31 +234,40 @@ export default function BouquetPage() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "40px 20px",
+        padding: "20px 14px 32px",
       }}
     >
       <div
         style={{
           width: "100%",
-          maxWidth: "640px",
+          maxWidth: "420px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "24px",
+          marginBottom: "20px",
+          gap: "12px",
         }}
       >
-        <h1 style={{ fontSize: "32px", margin: 0 }}>
+        <h1
+          style={{
+            fontSize: "28px",
+            margin: 0,
+            lineHeight: 1.2,
+          }}
+        >
           🌸 {bouquet?.title ?? "花束"}
         </h1>
 
         <button
           onClick={handleExit}
           style={{
-            padding: "10px 14px",
+            padding: "8px 12px",
             borderRadius: "10px",
             border: "1px solid #d8cbbd",
             backgroundColor: "#fff",
             cursor: "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
           }}
         >
           戻る
@@ -265,15 +275,27 @@ export default function BouquetPage() {
       </div>
 
       {message && (
-        <p style={{ marginBottom: "16px", color: "#8a4b4b" }}>{message}</p>
+        <p
+          style={{
+            width: "100%",
+            maxWidth: "420px",
+            marginBottom: "14px",
+            color: "#8a4b4b",
+            fontSize: "14px",
+            lineHeight: 1.5,
+          }}
+        >
+          {message}
+        </p>
       )}
 
       <div
         style={{
+          width: "100%",
+          maxWidth: "420px",
           display: "grid",
-          gridTemplateColumns: "repeat(5, 90px)",
-          gap: "16px",
-          justifyContent: "center",
+          gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+          gap: "10px",
         }}
       >
         {Array.from({ length: totalSlots }).map((_, index) => {
@@ -284,12 +306,12 @@ export default function BouquetPage() {
               key={index}
               onClick={() => handleSlotClick(index)}
               style={{
-                width: "90px",
-                height: "90px",
+                width: "100%",
+                aspectRatio: "1 / 1",
                 borderRadius: "50%",
                 border: "2px dashed #c9b8a6",
                 backgroundColor: "#fffaf5",
-                fontSize: "28px",
+                fontSize: "24px",
                 cursor: "pointer",
               }}
             >
@@ -309,25 +331,40 @@ export default function BouquetPage() {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            padding: "20px",
+            padding: "16px",
+            zIndex: 20,
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%",
-              maxWidth: "420px",
+              maxWidth: "360px",
               backgroundColor: "#fffaf5",
-              borderRadius: "20px",
-              padding: "24px",
+              borderRadius: "18px",
+              padding: "18px",
               boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
             }}
           >
-            <h2 style={{ fontSize: "24px", marginBottom: "12px" }}>
+            <h2
+              style={{
+                fontSize: "22px",
+                marginTop: 0,
+                marginBottom: "10px",
+                lineHeight: 1.3,
+              }}
+            >
               新しい花を作る
             </h2>
 
-            <p style={{ marginBottom: "12px", color: "#6b5b4d" }}>
+            <p
+              style={{
+                marginBottom: "12px",
+                color: "#6b5b4d",
+                fontSize: "14px",
+                lineHeight: 1.5,
+              }}
+            >
               スロット {selectedSlot + 1} に植える言葉を書いてください。
             </p>
 
@@ -337,7 +374,7 @@ export default function BouquetPage() {
               placeholder="言葉を入力してください"
               style={{
                 width: "100%",
-                minHeight: "120px",
+                minHeight: "96px",
                 borderRadius: "12px",
                 border: "1px solid #d8cbbd",
                 padding: "12px",
@@ -352,14 +389,14 @@ export default function BouquetPage() {
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
-                gap: "10px",
-                marginTop: "16px",
+                gap: "8px",
+                marginTop: "14px",
               }}
             >
               <button
                 onClick={() => setSelectedSlot(null)}
                 style={{
-                  padding: "10px 16px",
+                  padding: "10px 14px",
                   borderRadius: "10px",
                   border: "1px solid #d8cbbd",
                   backgroundColor: "white",
@@ -372,7 +409,7 @@ export default function BouquetPage() {
               <button
                 onClick={handleCreateFlower}
                 style={{
-                  padding: "10px 16px",
+                  padding: "10px 14px",
                   borderRadius: "10px",
                   border: "none",
                   backgroundColor: "#e7c8d8",
@@ -399,25 +436,38 @@ export default function BouquetPage() {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            padding: "20px",
+            padding: "16px",
+            zIndex: 20,
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%",
-              maxWidth: "460px",
+              maxWidth: "360px",
               backgroundColor: "#fffaf5",
-              borderRadius: "20px",
-              padding: "24px",
+              borderRadius: "18px",
+              padding: "18px",
               boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
             }}
           >
-            <div style={{ fontSize: "40px", marginBottom: "12px" }}>
+            <div
+              style={{
+                fontSize: "36px",
+                marginBottom: "10px",
+              }}
+            >
               {getFlowerEmoji(selectedFlower)}
             </div>
 
-            <h2 style={{ fontSize: "24px", marginBottom: "8px" }}>
+            <h2
+              style={{
+                fontSize: "22px",
+                marginTop: 0,
+                marginBottom: "8px",
+                lineHeight: 1.3,
+              }}
+            >
               花のことば
             </h2>
 
@@ -427,14 +477,22 @@ export default function BouquetPage() {
                 border: "1px solid #eadfd3",
                 borderRadius: "12px",
                 padding: "12px",
-                marginBottom: "16px",
+                marginBottom: "14px",
                 lineHeight: 1.6,
+                fontSize: "14px",
+                wordBreak: "break-word",
               }}
             >
               {selectedFlower.seed_text}
             </p>
 
-            <h3 style={{ fontSize: "18px", marginBottom: "10px" }}>
+            <h3
+              style={{
+                fontSize: "17px",
+                marginTop: 0,
+                marginBottom: "10px",
+              }}
+            >
               メッセージ
             </h3>
 
@@ -443,13 +501,20 @@ export default function BouquetPage() {
                 display: "flex",
                 flexDirection: "column",
                 gap: "8px",
-                marginBottom: "16px",
-                maxHeight: "180px",
+                marginBottom: "14px",
+                maxHeight: "160px",
                 overflowY: "auto",
               }}
             >
               {selectedFlower.messages.length === 0 ? (
-                <p style={{ color: "#7a6b5d" }}>
+                <p
+                  style={{
+                    color: "#7a6b5d",
+                    fontSize: "14px",
+                    lineHeight: 1.5,
+                    margin: 0,
+                  }}
+                >
                   まだメッセージはありません。
                 </p>
               ) : (
@@ -462,6 +527,8 @@ export default function BouquetPage() {
                       borderRadius: "12px",
                       padding: "10px 12px",
                       lineHeight: 1.5,
+                      fontSize: "14px",
+                      wordBreak: "break-word",
                     }}
                   >
                     {msg.content}
@@ -476,7 +543,7 @@ export default function BouquetPage() {
               placeholder="この花にメッセージを書いてください"
               style={{
                 width: "100%",
-                minHeight: "100px",
+                minHeight: "90px",
                 borderRadius: "12px",
                 border: "1px solid #d8cbbd",
                 padding: "12px",
@@ -491,8 +558,8 @@ export default function BouquetPage() {
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
-                gap: "10px",
-                marginTop: "16px",
+                gap: "8px",
+                marginTop: "14px",
               }}
             >
               <button
@@ -501,7 +568,7 @@ export default function BouquetPage() {
                   setMessageText("");
                 }}
                 style={{
-                  padding: "10px 16px",
+                  padding: "10px 14px",
                   borderRadius: "10px",
                   border: "1px solid #d8cbbd",
                   backgroundColor: "white",
@@ -514,7 +581,7 @@ export default function BouquetPage() {
               <button
                 onClick={handleAddMessage}
                 style={{
-                  padding: "10px 16px",
+                  padding: "10px 14px",
                   borderRadius: "10px",
                   border: "none",
                   backgroundColor: "#cfe7c8",
