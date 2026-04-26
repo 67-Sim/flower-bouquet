@@ -53,38 +53,75 @@ const FLOWER_COLORS = [
 const FLOWER_SHAPES = [
   {
     value: "classic",
-    label: "ふつう",
-    borderRadius: "75% 75% 58% 58%",
+    label: "さくら",
+    borderRadius: "75% 75% 52% 52%",
+    clipPath: "polygon(50% 0%, 86% 24%, 78% 78%, 50% 100%, 22% 78%, 14% 24%)",
     widthScale: 1,
-    heightScale: 1,
+    heightScale: 1.05,
+    rotateOffset: 0,
   },
   {
     value: "round",
-    label: "まるい",
+    label: "まんまる",
     borderRadius: "50%",
-    widthScale: 1.08,
-    heightScale: 0.92,
+    clipPath: "circle(50% at 50% 50%)",
+    widthScale: 1.18,
+    heightScale: 0.9,
+    rotateOffset: 0,
   },
   {
     value: "long",
-    label: "ほそながい",
-    borderRadius: "80% 80% 45% 45%",
-    widthScale: 0.82,
-    heightScale: 1.16,
+    label: "しずく",
+    borderRadius: "90% 90% 55% 55%",
+    clipPath: "polygon(50% 0%, 88% 38%, 72% 100%, 28% 100%, 12% 38%)",
+    widthScale: 0.88,
+    heightScale: 1.22,
+    rotateOffset: 0,
   },
   {
     value: "pointed",
-    label: "とがった",
-    borderRadius: "85% 85% 42% 42%",
-    widthScale: 0.95,
-    heightScale: 1.08,
+    label: "とがり",
+    borderRadius: "28%",
+    clipPath: "polygon(50% 0%, 100% 58%, 72% 100%, 50% 82%, 28% 100%, 0% 58%)",
+    widthScale: 1.04,
+    heightScale: 1.18,
+    rotateOffset: 0,
   },
   {
     value: "wide",
-    label: "ひろい",
-    borderRadius: "70% 70% 65% 65%",
-    widthScale: 1.22,
-    heightScale: 0.9,
+    label: "ちょう",
+    borderRadius: "80% 20% 80% 20%",
+    clipPath: "polygon(50% 0%, 100% 24%, 72% 50%, 100% 76%, 50% 100%, 0% 76%, 28% 50%, 0% 24%)",
+    widthScale: 1.36,
+    heightScale: 0.88,
+    rotateOffset: 0,
+  },
+  {
+    value: "heart",
+    label: "ハート",
+    borderRadius: "70% 70% 45% 45%",
+    clipPath: "polygon(50% 100%, 10% 58%, 8% 28%, 30% 8%, 50% 28%, 70% 8%, 92% 28%, 90% 58%)",
+    widthScale: 1.18,
+    heightScale: 1.02,
+    rotateOffset: 180,
+  },
+  {
+    value: "leaf",
+    label: "リーフ",
+    borderRadius: "100% 0 100% 0",
+    clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
+    widthScale: 0.92,
+    heightScale: 1.22,
+    rotateOffset: 45,
+  },
+  {
+    value: "star",
+    label: "ほし",
+    borderRadius: "30%",
+    clipPath: "polygon(50% 0%, 62% 34%, 98% 35%, 69% 56%, 79% 92%, 50% 70%, 21% 92%, 31% 56%, 2% 35%, 38% 34%)",
+    widthScale: 1.28,
+    heightScale: 1.28,
+    rotateOffset: 18,
   },
 ];
 
@@ -178,7 +215,8 @@ export default function BouquetPage() {
     const commentCount = seed.comments.length;
     const displayName = getDisplayName(seed);
 
-    const growthRatio = Math.min(commentCount, 100) / 100;
+    const flowerCommentCount = Math.max(commentCount - 10, 0);
+    const growthRatio = Math.min(flowerCommentCount, 100) / 100;
 
     // NOTE:
     // 꽃 전체가 위쪽 꼭짓점 기준으로 커지는 느낌이 나지 않도록
@@ -190,9 +228,9 @@ export default function BouquetPage() {
     const petalHeight = basePetalHeight * shapeConfig.heightScale;
     const petalDistance = 11 + growthRatio * 31;
     const centerSize = 17 + growthRatio * 21;
-    const petalCount = commentCount === 0 ? 2 : commentCount < 30 ? 6 : 10;
+    const petalCount = flowerCommentCount === 0 ? 2 : flowerCommentCount < 30 ? 6 : 10;
 
-    if (commentCount === 0) {
+    if (commentCount <= 10) {
       return (
         <div
           style={{
@@ -210,6 +248,7 @@ export default function BouquetPage() {
               height: "70%",
               backgroundColor: "#7aa36f",
               transform: "translateX(-50%)",
+              zIndex: 1,
             }}
           />
           <div
@@ -220,8 +259,10 @@ export default function BouquetPage() {
               width: "40%",
               height: "42%",
               borderRadius: shapeConfig.borderRadius,
+              clipPath: shapeConfig.clipPath,
               backgroundColor: color,
-              transform: "rotate(-25deg)",
+              transform: `rotate(${-25 + shapeConfig.rotateOffset}deg)`,
+              zIndex: 2,
             }}
           />
           <div
@@ -232,10 +273,49 @@ export default function BouquetPage() {
               width: "40%",
               height: "42%",
               borderRadius: shapeConfig.borderRadius,
+              clipPath: shapeConfig.clipPath,
               backgroundColor: color,
-              transform: "rotate(25deg)",
+              transform: `rotate(${25 + shapeConfig.rotateOffset}deg)`,
+              zIndex: 2,
             }}
           />
+
+          {/* 씨앗 상태에서도 이름 표시 */}
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "34%",
+              width: "28px",
+              height: "28px",
+              borderRadius: "50%",
+              backgroundColor: "#ffe8a3",
+              transform: "translate(-50%, -50%)",
+              zIndex: 999,
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: "2px",
+              boxSizing: "border-box",
+              textAlign: "center",
+              overflow: "hidden",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "8px",
+                fontWeight: 700,
+                color: "#4b3b2f",
+                lineHeight: 1.05,
+                wordBreak: "keep-all",
+                whiteSpace: "normal",
+              }}
+            >
+              {displayName}
+            </span>
+          </div>
         </div>
       );
     }
@@ -250,25 +330,9 @@ export default function BouquetPage() {
           justifyContent: "center",
           alignItems: "center",
           overflow: "visible",
+          isolation: "isolate",
         }}
       >
-        {/* 원형 점선 배경 */}
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            width: `${size + 14}px`,
-            height: `${size + 14}px`,
-            borderRadius: "50%",
-            border: "2px dashed #b8a7c9",
-            transform: "translate(-50%, -50%)",
-            boxSizing: "border-box",
-            zIndex: 0,
-            pointerEvents: "none",
-          }}
-        />
-
         {/* 꽃잎 */}
         {Array.from({ length: petalCount }).map((_, i) => {
           const angle = (360 / petalCount) * i;
@@ -296,10 +360,12 @@ export default function BouquetPage() {
                   width: `${petalWidth}px`,
                   height: `${petalHeight}px`,
                   borderRadius: shapeConfig.borderRadius,
+                  clipPath: shapeConfig.clipPath,
                   backgroundColor: color,
-                  transform: `translate(-50%, calc(-50% - ${petalDistance}px))`,
+                  transform: `translate(-50%, calc(-50% - ${petalDistance}px)) rotate(${shapeConfig.rotateOffset}deg)`,
                   opacity: 0.96,
                   boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
+                  zIndex: 1,
                 }}
               />
             </div>
@@ -313,8 +379,11 @@ export default function BouquetPage() {
             height: `${centerSize}px`,
             borderRadius: "50%",
             backgroundColor: "#ffe8a3",
-            position: "relative",
-            zIndex: 20,
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 999,
             border: "1px solid rgba(0,0,0,0.08)",
             boxShadow: "0 2px 6px rgba(0,0,0,0.16)",
             display: "flex",
@@ -613,8 +682,8 @@ export default function BouquetPage() {
                 width: "100%",
                 aspectRatio: "1 / 1",
                 borderRadius: "50%",
-                border: "2px dashed #c9b8a6",
-                backgroundColor: "#fffaf5",
+                border: seed ? "1px solid transparent" : "1px solid #eadfd3",
+                backgroundColor: seed ? "transparent" : "#fffaf5",
                 cursor: "pointer",
                 display: "flex",
                 flexDirection: "column",
@@ -781,7 +850,7 @@ export default function BouquetPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(5, 1fr)",
+                      gridTemplateColumns: "repeat(3, 1fr)",
                       gap: "8px",
                     }}
                   >
@@ -812,7 +881,9 @@ export default function BouquetPage() {
                             width: `${18 * shape.widthScale}px`,
                             height: `${24 * shape.heightScale}px`,
                             borderRadius: shape.borderRadius,
+                            clipPath: shape.clipPath,
                             backgroundColor: editColor,
+                            transform: `rotate(${shape.rotateOffset}deg)`,
                             display: "block",
                           }}
                         />
