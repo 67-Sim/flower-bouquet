@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 const ADMIN_ID = "comany67";
 const ADMIN_PASSWORD = "00comany0067";
+const REMOVED_ID = 5285;
 
 export default function Home() {
   const router = useRouter();
@@ -34,8 +35,8 @@ export default function Home() {
 
     const idNumber = Number(trimmedId);
 
-    if (idNumber < 5260 || idNumber > 5300) {
-      setMessage("IDは5260から5300までです。");
+    if (idNumber < 5260 || idNumber > 5300 || idNumber === REMOVED_ID) {
+      setMessage("このIDは利用できません。");
       return;
     }
 
