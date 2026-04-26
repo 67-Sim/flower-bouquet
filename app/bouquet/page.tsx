@@ -31,6 +31,7 @@ type BouquetSeed = {
   slot_number: number;
   title: string | null;
   flower_color: string | null;
+  flower_shape: string | null;
   created_at: string;
   owner?: JoinedOwner;
   comments: SeedComment[];
@@ -48,6 +49,52 @@ const FLOWER_COLORS = [
   "#84a59d",
   "#ffb703",
 ];
+
+const FLOWER_SHAPES = [
+  {
+    value: "classic",
+    label: "ふつう",
+    borderRadius: "75% 75% 58% 58%",
+    widthScale: 1,
+    heightScale: 1,
+  },
+  {
+    value: "round",
+    label: "まるい",
+    borderRadius: "50%",
+    widthScale: 1.08,
+    heightScale: 0.92,
+  },
+  {
+    value: "long",
+    label: "ほそながい",
+    borderRadius: "80% 80% 45% 45%",
+    widthScale: 0.82,
+    heightScale: 1.16,
+  },
+  {
+    value: "pointed",
+    label: "とがった",
+    borderRadius: "85% 85% 42% 42%",
+    widthScale: 0.95,
+    heightScale: 1.08,
+  },
+  {
+    value: "wide",
+    label: "ひろい",
+    borderRadius: "70% 70% 65% 65%",
+    widthScale: 1.22,
+    heightScale: 0.9,
+  },
+];
+
+const DEFAULT_FLOWER_SHAPE = FLOWER_SHAPES[0].value;
+
+const getFlowerShapeConfig = (shape: string | null | undefined) => {
+  return (
+    FLOWER_SHAPES.find((item) => item.value === shape) ?? FLOWER_SHAPES[0]
+  );
+};
 
 const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
   (num) => num !== 5285
@@ -72,6 +119,7 @@ export default function BouquetPage() {
   const [openedSlotNumber, setOpenedSlotNumber] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editColor, setEditColor] = useState(FLOWER_COLORS[0]);
+  const [editShape, setEditShape] = useState(DEFAULT_FLOWER_SHAPE);
   const [commentText, setCommentText] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -126,15 +174,20 @@ export default function BouquetPage() {
 
   const renderFlower = (seed: BouquetSeed) => {
     const color = seed.flower_color || FLOWER_COLORS[0];
+    const shapeConfig = getFlowerShapeConfig(seed.flower_shape);
     const commentCount = seed.comments.length;
     const displayName = getDisplayName(seed);
 
     const growthRatio = Math.min(commentCount, 100) / 100;
 
-    // 꽃잎, 점선, 중앙 원이 모두 같은 중심점 기준으로 커지게 합니다.
+    // NOTE:
+    // 꽃 전체가 위쪽 꼭짓점 기준으로 커지는 느낌이 나지 않도록
+    // 모든 꽃잎/점선/중앙 원을 같은 중심점(left:50%, top:50%) 기준으로 배치합니다.
     const size = 34 + growthRatio * 92;
-    const petalWidth = 13 + growthRatio * 25;
-    const petalHeight = 21 + growthRatio * 43;
+    const basePetalWidth = 13 + growthRatio * 25;
+    const basePetalHeight = 21 + growthRatio * 43;
+    const petalWidth = basePetalWidth * shapeConfig.widthScale;
+    const petalHeight = basePetalHeight * shapeConfig.heightScale;
     const petalDistance = 11 + growthRatio * 31;
     const centerSize = 17 + growthRatio * 21;
     const petalCount = commentCount === 0 ? 2 : commentCount < 30 ? 6 : 10;
@@ -146,7 +199,6 @@ export default function BouquetPage() {
             width: `${size}px`,
             height: `${size}px`,
             position: "relative",
-            overflow: "visible",
           }}
         >
           <div
@@ -167,7 +219,7 @@ export default function BouquetPage() {
               top: "8%",
               width: "40%",
               height: "42%",
-              borderRadius: "80% 80% 65% 20%",
+              borderRadius: shapeConfig.borderRadius,
               backgroundColor: color,
               transform: "rotate(-25deg)",
             }}
@@ -179,7 +231,7 @@ export default function BouquetPage() {
               top: "8%",
               width: "40%",
               height: "42%",
-              borderRadius: "80% 80% 20% 65%",
+              borderRadius: shapeConfig.borderRadius,
               backgroundColor: color,
               transform: "rotate(25deg)",
             }}
@@ -194,34 +246,30 @@ export default function BouquetPage() {
           position: "relative",
           width: `${size}px`,
           height: `${size}px`,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
           overflow: "visible",
-          flexShrink: 0,
         }}
       >
-        {Array.from({ length: petalCount }).map((_, i) => {
-          const angle = (360 / petalCount) * i;
+        {/* 원형 점선 배경 */}
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            width: `${size + 14}px`,
+            height: `${size + 14}px`,
+            borderRadius: "50%",
+            border: "2px dashed #b8a7c9",
+            transform: "translate(-50%, -50%)",
+            boxSizing: "border-box",
+            zIndex: 0,
+            pointerEvents: "none",
+          }}
+        />
 
-          return (
-            <div
-              key={`outline-${i}`}
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: `${petalWidth + 9}px`,
-                height: `${petalHeight + 9}px`,
-                borderRadius: "75% 75% 58% 58%",
-                border: "2px dashed #b8a7c9",
-                boxSizing: "border-box",
-                transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-${petalDistance + 4}px)`,
-                transformOrigin: "center center",
-                zIndex: 0,
-                pointerEvents: "none",
-              }}
-            />
-          );
-        })}
-
+        {/* 꽃잎 */}
         {Array.from({ length: petalCount }).map((_, i) => {
           const angle = (360 / petalCount) * i;
 
@@ -232,31 +280,40 @@ export default function BouquetPage() {
                 position: "absolute",
                 left: "50%",
                 top: "50%",
-                width: `${petalWidth}px`,
-                height: `${petalHeight}px`,
-                borderRadius: "75% 75% 58% 58%",
-                backgroundColor: color,
-                transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-${petalDistance}px)`,
+                width: 0,
+                height: 0,
+                transform: `rotate(${angle}deg)`,
                 transformOrigin: "center center",
-                opacity: 0.96,
-                boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
                 zIndex: 1,
                 pointerEvents: "none",
               }}
-            />
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: `${petalWidth}px`,
+                  height: `${petalHeight}px`,
+                  borderRadius: shapeConfig.borderRadius,
+                  backgroundColor: color,
+                  transform: `translate(-50%, calc(-50% - ${petalDistance}px))`,
+                  opacity: 0.96,
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
+                }}
+              />
+            </div>
           );
         })}
 
+        {/* 가운데 노란색 원과 이름은 꽃잎보다 항상 위에 표시 */}
         <div
           style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
             width: `${centerSize}px`,
             height: `${centerSize}px`,
             borderRadius: "50%",
             backgroundColor: "#ffe8a3",
-            transform: "translate(-50%, -50%)",
+            position: "relative",
             zIndex: 20,
             border: "1px solid rgba(0,0,0,0.08)",
             boxShadow: "0 2px 6px rgba(0,0,0,0.16)",
@@ -267,7 +324,6 @@ export default function BouquetPage() {
             boxSizing: "border-box",
             textAlign: "center",
             overflow: "hidden",
-            pointerEvents: "none",
           }}
         >
           <span
@@ -286,7 +342,6 @@ export default function BouquetPage() {
       </div>
     );
   };
-
   const loadSeeds = async () => {
     setLoading(true);
     setMessage("");
@@ -303,7 +358,7 @@ export default function BouquetPage() {
     const { data: seedRows, error: seedError } = await supabase
       .from("bouquet_seeds")
       .select(
-        "id, owner_id, slot_number, title, flower_color, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)"
+        "id, owner_id, slot_number, title, flower_color, flower_shape, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)"
       )
       .order("slot_number", { ascending: true });
 
@@ -359,6 +414,7 @@ export default function BouquetPage() {
     setIsAnonymous(true);
     setEditTitle(seed.title || "");
     setEditColor(seed.flower_color || FLOWER_COLORS[0]);
+    setEditShape(seed.flower_shape || DEFAULT_FLOWER_SHAPE);
   };
 
   const handleSaveSeedSettings = async () => {
@@ -372,6 +428,7 @@ export default function BouquetPage() {
       .update({
         title: editTitle,
         flower_color: editColor,
+        flower_shape: editShape,
       })
       .eq("id", openedSeed.id);
 
@@ -385,7 +442,7 @@ export default function BouquetPage() {
     setSeeds((prev) =>
       prev.map((seed) =>
         seed.id === openedSeed.id
-          ? { ...seed, title: editTitle, flower_color: editColor }
+          ? { ...seed, title: editTitle, flower_color: editColor, flower_shape: editShape }
           : seed
       )
     );
@@ -651,7 +708,7 @@ export default function BouquetPage() {
                 lineHeight: 1.3,
               }}
             >
-              {openedSeed.title?.trim() || "まだタイトルがありません"}
+              {openedSeed.title?.trim() || "まだ強みがありません"}
             </h2>
 
             {(isOwner || isAdmin) && (
@@ -660,7 +717,7 @@ export default function BouquetPage() {
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="タイトルを入力してください"
+                  placeholder="強みを入力してください"
                   style={{
                     width: "100%",
                     padding: "12px",
@@ -706,6 +763,69 @@ export default function BouquetPage() {
                           cursor: "pointer",
                         }}
                       />
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "12px" }}>
+                  <p
+                    style={{
+                      margin: "0 0 8px 0",
+                      fontSize: "14px",
+                      color: "#6b5b4d",
+                    }}
+                  >
+                    花びらの形
+                  </p>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(5, 1fr)",
+                      gap: "8px",
+                    }}
+                  >
+                    {FLOWER_SHAPES.map((shape) => (
+                      <button
+                        key={shape.value}
+                        type="button"
+                        onClick={() => setEditShape(shape.value)}
+                        style={{
+                          minHeight: "54px",
+                          borderRadius: "12px",
+                          border:
+                            editShape === shape.value
+                              ? "3px solid #6b5b4d"
+                              : "2px solid #eadfd3",
+                          backgroundColor: "#fff",
+                          cursor: "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "6px 4px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: `${18 * shape.widthScale}px`,
+                            height: `${24 * shape.heightScale}px`,
+                            borderRadius: shape.borderRadius,
+                            backgroundColor: editColor,
+                            display: "block",
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            color: "#6b5b4d",
+                            lineHeight: 1.1,
+                          }}
+                        >
+                          {shape.label}
+                        </span>
+                      </button>
                     ))}
                   </div>
                 </div>
