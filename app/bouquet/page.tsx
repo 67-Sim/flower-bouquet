@@ -4,12 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
+type CommentAuthor = {
+  name: string | null;
+};
+
+type SeedOwner = {
+  name: string | null;
+};
+
 type SeedComment = {
   id: string;
   seed_id: string;
   author_id: string | null;
   content: string;
+  is_anonymous: boolean;
   created_at: string;
+  author?: CommentAuthor | null;
 };
 
 type BouquetSeed = {
@@ -19,8 +29,11 @@ type BouquetSeed = {
   title: string | null;
   flower_color: string | null;
   created_at: string;
+  owner?: SeedOwner | null;
   comments: SeedComment[];
 };
+
+const ADMIN_ID = "comany67";
 
 const FLOWER_COLORS = [
   "#f8b4d9",
@@ -33,7 +46,17 @@ const FLOWER_COLORS = [
   "#ffb703",
 ];
 
-const SLOT_NUMBERS = Array.from({ length: 40 }, (_, i) => 5261 + i);
+const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i);
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function BouquetPage() {
   const supabase = createClient();
@@ -45,53 +68,75 @@ export default function BouquetPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editColor, setEditColor] = useState(FLOWER_COLORS[0]);
   const [commentText, setCommentText] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(true);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [savingSeed, setSavingSeed] = useState(false);
+  const [sendingComment, setSendingComment] = useState(false);
+
+  const isAdmin = loggedInUserId === ADMIN_ID;
 
   const openedSeed = useMemo(() => {
     if (openedSlotNumber === null) return null;
     return seeds.find((seed) => seed.slot_number === openedSlotNumber) ?? null;
   }, [openedSlotNumber, seeds]);
 
-  const isOwner = openedSeed && loggedInUserId === openedSeed.owner_id;
+  const isOwner = Boolean(
+    openedSeed && loggedInUserId === openedSeed.owner_id
+  );
 
-  const getFlowerStage = (commentCount: number) => {
-    if (commentCount === 0) return "sprout";
-    if (commentCount <= 2) return "leaf";
-    return "flower";
+  const canViewComments = Boolean(isOwner || isAdmin);
+
+  const getDisplayName = (seed: BouquetSeed) => {
+    return seed.owner?.name?.trim() || seed.owner_id;
+  };
+
+  const getCommentAuthorLabel = (comment: SeedComment) => {
+    if (comment.is_anonymous && !isAdmin) return "匿名";
+    if (comment.is_anonymous && isAdmin) {
+      return `匿名（${comment.author?.name || comment.author_id || "不明"}）`;
+    }
+
+    return comment.author?.name || comment.author_id || "不明";
   };
 
   const renderFlower = (seed: BouquetSeed) => {
     const color = seed.flower_color || FLOWER_COLORS[0];
-    const count = seed.comments.length;
-    const stage = getFlowerStage(count);
+    const commentCount = seed.comments.length;
 
-    if (stage === "sprout") {
+    const growthRatio = Math.min(commentCount, 100) / 100;
+    const size = 28 + growthRatio * 80;
+    const petalSize = 10 + growthRatio * 14;
+    const petalDistance = 10 + growthRatio * 30;
+    const petalCount = commentCount === 0 ? 2 : commentCount < 30 ? 6 : 10;
+
+    if (commentCount === 0) {
       return (
         <div
           style={{
-            width: "18px",
-            height: "28px",
+            width: `${size}px`,
+            height: `${size}px`,
             position: "relative",
           }}
         >
           <div
             style={{
               position: "absolute",
-              left: "8px",
-              bottom: "0",
+              left: "50%",
+              bottom: 0,
               width: "2px",
-              height: "18px",
+              height: "70%",
               backgroundColor: "#7aa36f",
+              transform: "translateX(-50%)",
             }}
           />
           <div
             style={{
               position: "absolute",
-              left: "2px",
-              top: "0",
-              width: "10px",
-              height: "12px",
+              left: "25%",
+              top: "8%",
+              width: "40%",
+              height: "42%",
               borderRadius: "50% 50% 50% 0",
               backgroundColor: color,
               transform: "rotate(-25deg)",
@@ -100,55 +145,13 @@ export default function BouquetPage() {
           <div
             style={{
               position: "absolute",
-              right: "0",
-              top: "0",
-              width: "10px",
-              height: "12px",
+              right: "20%",
+              top: "8%",
+              width: "40%",
+              height: "42%",
               borderRadius: "50% 50% 0 50%",
               backgroundColor: color,
               transform: "rotate(25deg)",
-            }}
-          />
-        </div>
-      );
-    }
-
-    if (stage === "leaf") {
-      return (
-        <div
-          style={{
-            position: "relative",
-            width: "46px",
-            height: "46px",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          {Array.from({ length: 6 }).map((_, i) => {
-            const angle = (360 / 6) * i;
-            return (
-              <div
-                key={i}
-                style={{
-                  position: "absolute",
-                  width: "14px",
-                  height: "14px",
-                  borderRadius: "50%",
-                  backgroundColor: color,
-                  transform: `rotate(${angle}deg) translateY(-14px)`,
-                }}
-              />
-            );
-          })}
-          <div
-            style={{
-              width: "14px",
-              height: "14px",
-              borderRadius: "50%",
-              backgroundColor: "#ffe8a3",
-              position: "relative",
-              zIndex: 2,
             }}
           />
         </div>
@@ -159,37 +162,41 @@ export default function BouquetPage() {
       <div
         style={{
           position: "relative",
-          width: "54px",
-          height: "54px",
+          width: `${size}px`,
+          height: `${size}px`,
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        {Array.from({ length: 8 }).map((_, i) => {
-          const angle = (360 / 8) * i;
+        {Array.from({ length: petalCount }).map((_, i) => {
+          const angle = (360 / petalCount) * i;
+
           return (
             <div
               key={i}
               style={{
                 position: "absolute",
-                width: "16px",
-                height: "16px",
+                width: `${petalSize}px`,
+                height: `${petalSize}px`,
                 borderRadius: "50%",
                 backgroundColor: color,
-                transform: `rotate(${angle}deg) translateY(-18px)`,
+                transform: `rotate(${angle}deg) translateY(-${petalDistance}px)`,
+                opacity: 0.96,
               }}
             />
           );
         })}
+
         <div
           style={{
-            width: "16px",
-            height: "16px",
+            width: `${12 + growthRatio * 12}px`,
+            height: `${12 + growthRatio * 12}px`,
             borderRadius: "50%",
             backgroundColor: "#ffe8a3",
             position: "relative",
             zIndex: 2,
+            border: "1px solid rgba(0,0,0,0.08)",
           }}
         />
       </div>
@@ -211,7 +218,9 @@ export default function BouquetPage() {
 
     const { data: seedRows, error: seedError } = await supabase
       .from("bouquet_seeds")
-      .select("id, owner_id, slot_number, title, flower_color, created_at")
+      .select(
+        "id, owner_id, slot_number, title, flower_color, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)"
+      )
       .order("slot_number", { ascending: true });
 
     if (seedError) {
@@ -227,7 +236,9 @@ export default function BouquetPage() {
     if (seedIds.length > 0) {
       const { data: commentData, error: commentError } = await supabase
         .from("seed_comments")
-        .select("id, seed_id, author_id, content, created_at")
+        .select(
+          "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)"
+        )
         .in("seed_id", seedIds)
         .order("created_at", { ascending: true });
 
@@ -259,13 +270,16 @@ export default function BouquetPage() {
 
     setOpenedSlotNumber(slotNumber);
     setCommentText("");
+    setIsAnonymous(true);
     setEditTitle(seed.title || "");
     setEditColor(seed.flower_color || FLOWER_COLORS[0]);
   };
 
   const handleSaveSeedSettings = async () => {
     if (!openedSeed || !loggedInUserId) return;
-    if (openedSeed.owner_id !== loggedInUserId) return;
+    if (openedSeed.owner_id !== loggedInUserId && !isAdmin) return;
+
+    setSavingSeed(true);
 
     const { error } = await supabase
       .from("bouquet_seeds")
@@ -274,6 +288,8 @@ export default function BouquetPage() {
         flower_color: editColor,
       })
       .eq("id", openedSeed.id);
+
+    setSavingSeed(false);
 
     if (error) {
       setMessage(error.message);
@@ -292,16 +308,24 @@ export default function BouquetPage() {
   const handleAddComment = async () => {
     if (!openedSeed || !loggedInUserId) return;
     if (!commentText.trim()) return;
+    if (sendingComment) return;
+
+    setSendingComment(true);
 
     const { data, error } = await supabase
       .from("seed_comments")
       .insert({
         seed_id: openedSeed.id,
-        author_id: loggedInUserId,
+        author_id: isAnonymous ? null : loggedInUserId,
         content: commentText,
+        is_anonymous: isAnonymous,
       })
-      .select("id, seed_id, author_id, content, created_at")
+      .select(
+        "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)"
+      )
       .single();
+
+    setSendingComment(false);
 
     if (error) {
       setMessage(error.message);
@@ -317,6 +341,31 @@ export default function BouquetPage() {
     );
 
     setCommentText("");
+    setIsAnonymous(true);
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!isAdmin) return;
+
+    const ok = confirm("このコメントを削除しますか？");
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from("seed_comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setSeeds((prev) =>
+      prev.map((seed) => ({
+        ...seed,
+        comments: seed.comments.filter((comment) => comment.id !== commentId),
+      }))
+    );
   };
 
   const handleLogout = () => {
@@ -350,6 +399,7 @@ export default function BouquetPage() {
         flexDirection: "column",
         alignItems: "center",
         padding: "20px 14px 32px",
+        overflowX: "hidden",
       }}
     >
       <div
@@ -363,13 +413,7 @@ export default function BouquetPage() {
           gap: "12px",
         }}
       >
-        <h1
-          style={{
-            fontSize: "28px",
-            margin: 0,
-            lineHeight: 1.2,
-          }}
-        >
+        <h1 style={{ fontSize: "28px", margin: 0, lineHeight: 1.2 }}>
           🌸 花束
         </h1>
 
@@ -411,10 +455,12 @@ export default function BouquetPage() {
           display: "grid",
           gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
           gap: "10px",
+          overflow: "visible",
         }}
       >
         {SLOT_NUMBERS.map((slotNumber) => {
           const seed = seeds.find((item) => item.slot_number === slotNumber);
+          const commentCount = seed?.comments.length ?? 0;
 
           return (
             <button
@@ -433,17 +479,23 @@ export default function BouquetPage() {
                 alignItems: "center",
                 padding: "4px",
                 gap: "2px",
+                position: "relative",
+                overflow: "visible",
+                zIndex: 200 - Math.min(commentCount, 100),
               }}
             >
               {seed ? renderFlower(seed) : null}
+
               <span
                 style={{
                   fontSize: "10px",
                   color: "#6b5b4d",
                   lineHeight: 1.1,
+                  position: "relative",
+                  zIndex: 10,
                 }}
               >
-                {slotNumber}
+                {seed ? getDisplayName(seed) : slotNumber}
               </span>
             </button>
           );
@@ -464,7 +516,7 @@ export default function BouquetPage() {
             justifyContent: "center",
             alignItems: "center",
             padding: "16px",
-            zIndex: 20,
+            zIndex: 999,
           }}
         >
           <div
@@ -472,6 +524,8 @@ export default function BouquetPage() {
             style={{
               width: "100%",
               maxWidth: "360px",
+              maxHeight: "88vh",
+              overflowY: "auto",
               backgroundColor: "#fffaf5",
               borderRadius: "18px",
               padding: "18px",
@@ -497,7 +551,7 @@ export default function BouquetPage() {
                 textAlign: "center",
               }}
             >
-              {openedSeed.slot_number}番の種
+              {getDisplayName(openedSeed)}さんの種
             </p>
 
             <h2
@@ -511,7 +565,7 @@ export default function BouquetPage() {
               {openedSeed.title?.trim() || "まだタイトルがありません"}
             </h2>
 
-            {isOwner ? (
+            {(isOwner || isAdmin) && (
               <>
                 <input
                   type="text"
@@ -569,6 +623,7 @@ export default function BouquetPage() {
 
                 <button
                   onClick={handleSaveSeedSettings}
+                  disabled={savingSeed}
                   style={{
                     width: "100%",
                     padding: "12px",
@@ -576,13 +631,14 @@ export default function BouquetPage() {
                     borderRadius: "10px",
                     border: "none",
                     backgroundColor: "#e7c8d8",
-                    cursor: "pointer",
+                    cursor: savingSeed ? "default" : "pointer",
+                    opacity: savingSeed ? 0.7 : 1,
                   }}
                 >
-                  自分の種を保存
+                  {savingSeed ? "保存中..." : "自分の種を保存"}
                 </button>
               </>
-            ) : null}
+            )}
 
             <h3
               style={{
@@ -594,14 +650,14 @@ export default function BouquetPage() {
               コメント
             </h3>
 
-            {isOwner ? (
+            {canViewComments ? (
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   gap: "8px",
                   marginBottom: "14px",
-                  maxHeight: "160px",
+                  maxHeight: "190px",
                   overflowY: "auto",
                 }}
               >
@@ -630,7 +686,40 @@ export default function BouquetPage() {
                         wordBreak: "break-word",
                       }}
                     >
-                      {comment.content}
+                      <div>{comment.content}</div>
+
+                      <div
+                        style={{
+                          marginTop: "6px",
+                          fontSize: "11px",
+                          color: "#8a7a6b",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "8px",
+                        }}
+                      >
+                        <span>
+                          {getCommentAuthorLabel(comment)} /{" "}
+                          {formatDateTime(comment.created_at)}
+                        </span>
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "#b85c5c",
+                              cursor: "pointer",
+                              fontSize: "11px",
+                              padding: 0,
+                              flexShrink: 0,
+                            }}
+                          >
+                            削除
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
@@ -666,6 +755,24 @@ export default function BouquetPage() {
               }}
             />
 
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "10px",
+                fontSize: "14px",
+                color: "#6b5b4d",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={(e) => setIsAnonymous(e.target.checked)}
+              />
+              匿名で送る
+            </label>
+
             <div
               style={{
                 display: "flex",
@@ -692,15 +799,17 @@ export default function BouquetPage() {
 
               <button
                 onClick={handleAddComment}
+                disabled={sendingComment}
                 style={{
                   padding: "10px 14px",
                   borderRadius: "10px",
                   border: "none",
                   backgroundColor: "#cfe7c8",
-                  cursor: "pointer",
+                  cursor: sendingComment ? "default" : "pointer",
+                  opacity: sendingComment ? 0.7 : 1,
                 }}
               >
-                送る
+                {sendingComment ? "送信中..." : "送る"}
               </button>
             </div>
           </div>

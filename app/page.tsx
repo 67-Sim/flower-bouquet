@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const ADMIN_ID = "comany67";
+const ADMIN_PASSWORD = "00comany0067";
+
 export default function Home() {
   const router = useRouter();
 
@@ -13,6 +16,17 @@ export default function Home() {
   const handleLogin = () => {
     const trimmedId = userId.trim();
 
+    if (trimmedId === ADMIN_ID) {
+      if (password !== ADMIN_PASSWORD) {
+        setMessage("パスワードが違います。");
+        return;
+      }
+
+      localStorage.setItem("logged-in-user-id", ADMIN_ID);
+      router.push("/bouquet");
+      return;
+    }
+
     if (!/^\d{4}$/.test(trimmedId)) {
       setMessage("IDは4桁の番号を入力してください。");
       return;
@@ -20,8 +34,8 @@ export default function Home() {
 
     const idNumber = Number(trimmedId);
 
-    if (idNumber < 5261 || idNumber > 5300) {
-      setMessage("IDは5261から5300までです。");
+    if (idNumber < 5260 || idNumber > 5300) {
+      setMessage("IDは5260から5300までです。");
       return;
     }
 
@@ -70,7 +84,7 @@ export default function Home() {
 
         <input
           type="text"
-          placeholder="ID（5261〜5300）"
+          placeholder="ID"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           style={{
