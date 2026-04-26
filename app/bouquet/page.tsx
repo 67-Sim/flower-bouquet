@@ -127,11 +127,16 @@ export default function BouquetPage() {
   const renderFlower = (seed: BouquetSeed) => {
     const color = seed.flower_color || FLOWER_COLORS[0];
     const commentCount = seed.comments.length;
+    const displayName = getDisplayName(seed);
 
     const growthRatio = Math.min(commentCount, 100) / 100;
-    const size = 30 + growthRatio * 80;
-    const petalSize = 10 + growthRatio * 30;
-    const petalDistance = 10 + growthRatio * 30;
+
+    // 꽃잎, 점선, 중앙 원이 모두 같은 중심점 기준으로 커지게 합니다.
+    const size = 34 + growthRatio * 92;
+    const petalWidth = 13 + growthRatio * 25;
+    const petalHeight = 21 + growthRatio * 43;
+    const petalDistance = 11 + growthRatio * 31;
+    const centerSize = 17 + growthRatio * 21;
     const petalCount = commentCount === 0 ? 2 : commentCount < 30 ? 6 : 10;
 
     if (commentCount === 0) {
@@ -141,6 +146,7 @@ export default function BouquetPage() {
             width: `${size}px`,
             height: `${size}px`,
             position: "relative",
+            overflow: "visible",
           }}
         >
           <div
@@ -161,7 +167,7 @@ export default function BouquetPage() {
               top: "8%",
               width: "40%",
               height: "42%",
-              borderRadius: "50% 50% 50% 0",
+              borderRadius: "80% 80% 65% 20%",
               backgroundColor: color,
               transform: "rotate(-25deg)",
             }}
@@ -173,7 +179,7 @@ export default function BouquetPage() {
               top: "8%",
               width: "40%",
               height: "42%",
-              borderRadius: "50% 50% 0 50%",
+              borderRadius: "80% 80% 20% 65%",
               backgroundColor: color,
               transform: "rotate(25deg)",
             }}
@@ -188,9 +194,8 @@ export default function BouquetPage() {
           position: "relative",
           width: `${size}px`,
           height: `${size}px`,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
+          overflow: "visible",
+          flexShrink: 0,
         }}
       >
         {Array.from({ length: petalCount }).map((_, i) => {
@@ -198,15 +203,45 @@ export default function BouquetPage() {
 
           return (
             <div
-              key={i}
+              key={`outline-${i}`}
               style={{
                 position: "absolute",
-                width: `${petalSize}px`,
-                height: `${petalSize}px`,
-                borderRadius: "50%",
+                left: "50%",
+                top: "50%",
+                width: `${petalWidth + 9}px`,
+                height: `${petalHeight + 9}px`,
+                borderRadius: "75% 75% 58% 58%",
+                border: "2px dashed #b8a7c9",
+                boxSizing: "border-box",
+                transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-${petalDistance + 4}px)`,
+                transformOrigin: "center center",
+                zIndex: 0,
+                pointerEvents: "none",
+              }}
+            />
+          );
+        })}
+
+        {Array.from({ length: petalCount }).map((_, i) => {
+          const angle = (360 / petalCount) * i;
+
+          return (
+            <div
+              key={`petal-${i}`}
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                width: `${petalWidth}px`,
+                height: `${petalHeight}px`,
+                borderRadius: "75% 75% 58% 58%",
                 backgroundColor: color,
-                transform: `rotate(${angle}deg) translateY(-${petalDistance}px)`,
+                transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-${petalDistance}px)`,
+                transformOrigin: "center center",
                 opacity: 0.96,
+                boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
+                zIndex: 1,
+                pointerEvents: "none",
               }}
             />
           );
@@ -214,15 +249,40 @@ export default function BouquetPage() {
 
         <div
           style={{
-            width: `${12 + growthRatio * 12}px`,
-            height: `${12 + growthRatio * 12}px`,
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            width: `${centerSize}px`,
+            height: `${centerSize}px`,
             borderRadius: "50%",
             backgroundColor: "#ffe8a3",
-            position: "relative",
-            zIndex: 2,
+            transform: "translate(-50%, -50%)",
+            zIndex: 20,
             border: "1px solid rgba(0,0,0,0.08)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.16)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "2px",
+            boxSizing: "border-box",
+            textAlign: "center",
+            overflow: "hidden",
+            pointerEvents: "none",
           }}
-        />
+        >
+          <span
+            style={{
+              fontSize: `${Math.max(7, centerSize * 0.25)}px`,
+              fontWeight: 700,
+              color: "#4b3b2f",
+              lineHeight: 1.05,
+              wordBreak: "keep-all",
+              whiteSpace: "normal",
+            }}
+          >
+            {displayName}
+          </span>
+        </div>
       </div>
     );
   };
@@ -512,18 +572,20 @@ export default function BouquetPage() {
             >
               {seed ? renderFlower(seed) : null}
 
-              <span
-                style={{
-                  fontSize: "10px",
-                  color: "#6b5b4d",
-                  lineHeight: 1.1,
-                  position: "relative",
-                  zIndex: 10,
-                  textAlign: "center",
-                }}
-              >
-                {seed ? getDisplayName(seed) : slotNumber}
-              </span>
+              {!seed && (
+                <span
+                  style={{
+                    fontSize: "10px",
+                    color: "#6b5b4d",
+                    lineHeight: 1.1,
+                    position: "relative",
+                    zIndex: 10,
+                    textAlign: "center",
+                  }}
+                >
+                  {slotNumber}
+                </span>
+              )}
             </button>
           );
         })}

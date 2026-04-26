@@ -51,6 +51,20 @@ export default function Home() {
     router.push("/bouquet");
   };
 
+  const inputStyle = {
+    width: "100%",
+    padding: "12px",
+    marginBottom: "12px",
+    borderRadius: "10px",
+    border: "1px solid #d8cbbd",
+    boxSizing: "border-box" as const,
+    fontSize: "16px",
+    color: "#2f2a25",
+    backgroundColor: "#fffaf5",
+    WebkitTextFillColor: "#2f2a25",
+    caretColor: "#2f2a25",
+  };
+
   return (
     <main
       style={{
@@ -60,6 +74,7 @@ export default function Home() {
         justifyContent: "center",
         alignItems: "center",
         padding: "20px 14px",
+        color: "#2f2a25",
       }}
     >
       <div
@@ -70,6 +85,7 @@ export default function Home() {
           borderRadius: "20px",
           padding: "20px",
           boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+          color: "#2f2a25",
         }}
       >
         <h1
@@ -78,6 +94,7 @@ export default function Home() {
             marginTop: 0,
             marginBottom: "16px",
             lineHeight: 1.2,
+            color: "#2f2a25",
           }}
         >
           花束
@@ -88,15 +105,7 @@ export default function Home() {
           placeholder="ID"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "12px",
-            borderRadius: "10px",
-            border: "1px solid #d8cbbd",
-            boxSizing: "border-box",
-            fontSize: "16px",
-          }}
+          style={inputStyle}
         />
 
         <input
@@ -107,15 +116,7 @@ export default function Home() {
           onKeyDown={(e) => {
             if (e.key === "Enter") handleLogin();
           }}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "12px",
-            borderRadius: "10px",
-            border: "1px solid #d8cbbd",
-            boxSizing: "border-box",
-            fontSize: "16px",
-          }}
+          style={inputStyle}
         />
 
         <button
@@ -128,6 +129,8 @@ export default function Home() {
             background: "#cfe7c8",
             cursor: "pointer",
             fontSize: "16px",
+            color: "#2f2a25",
+            WebkitTextFillColor: "#2f2a25",
           }}
         >
           ログイン
