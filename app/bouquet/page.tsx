@@ -109,7 +109,7 @@ export default function BouquetPage() {
   };
 
   const getDisplayName = (seed: BouquetSeed) => {
-    return getOwnerName(seed.owner)?.trim() || seed.owner_id;
+    return getOwnerName(seed.owner ?? null)?.trim() || seed.owner_id;
   };
 
   const getCommentAuthorLabel = (comment: SeedComment) => {
