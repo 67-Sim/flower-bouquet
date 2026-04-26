@@ -215,82 +215,104 @@ export default function BouquetPage() {
     const commentCount = seed.comments.length;
     const displayName = getDisplayName(seed);
 
-    const flowerCommentCount = Math.max(commentCount - 10, 0);
-    const growthRatio = Math.min(flowerCommentCount, 100) / 100;
+    const bloomCommentCount = Math.max(commentCount - 5, 0);
+    const growthRatio = Math.min(bloomCommentCount, 100) / 100;
+
+    // 댓글 0~4개까지는 씨앗/새싹 단계, 5개부터 꽃이 피는 단계입니다.
+    const seedStage = Math.min(commentCount, 4);
+    const stemHeightByStage = [28, 36, 48, 56, 64];
+    const stemHeight = stemHeightByStage[seedStage];
+    const sproutSize = 30;
+    const seedContainerHeight = 88;
+    const seedContainerWidth = 70;
 
     // NOTE:
     // 꽃 전체가 위쪽 꼭짓점 기준으로 커지는 느낌이 나지 않도록
-    // 모든 꽃잎/점선/중앙 원을 같은 중심점(left:50%, top:50%) 기준으로 배치합니다.
-    const size = 34 + growthRatio * 92;
-    const basePetalWidth = 13 + growthRatio * 25;
-    const basePetalHeight = 21 + growthRatio * 43;
+    // 모든 꽃잎/중앙 원을 같은 중심점(left:50%, top:50%) 기준으로 배치합니다.
+    const size = 42 + growthRatio * 84;
+    const basePetalWidth = 14 + growthRatio * 24;
+    const basePetalHeight = 22 + growthRatio * 42;
     const petalWidth = basePetalWidth * shapeConfig.widthScale;
     const petalHeight = basePetalHeight * shapeConfig.heightScale;
-    const petalDistance = 11 + growthRatio * 31;
-    const centerSize = 17 + growthRatio * 21;
-    const petalCount = flowerCommentCount === 0 ? 2 : flowerCommentCount < 30 ? 6 : 10;
+    const petalDistance = 12 + growthRatio * 30;
+    const centerSize = 22 + growthRatio * 16;
+    const petalCount = bloomCommentCount < 30 ? 6 : 10;
 
-    if (commentCount <= 10) {
+    if (commentCount < 5) {
       return (
         <div
           style={{
-            width: `${size}px`,
-            height: `${size}px`,
+            width: `${seedContainerWidth}px`,
+            height: `${seedContainerHeight}px`,
             position: "relative",
+            overflow: "visible",
+            isolation: "isolate",
           }}
         >
+          {/* 줄기: 댓글 1개부터 조금씩 길어집니다 */}
           <div
             style={{
               position: "absolute",
               left: "50%",
-              bottom: 0,
-              width: "2px",
-              height: "70%",
+              bottom: "8px",
+              width: commentCount === 0 ? "2px" : "3px",
+              height: `${stemHeight}px`,
               backgroundColor: "#7aa36f",
+              borderRadius: "999px",
               transform: "translateX(-50%)",
               zIndex: 1,
             }}
           />
-          <div
-            style={{
-              position: "absolute",
-              left: "25%",
-              top: "8%",
-              width: "40%",
-              height: "42%",
-              borderRadius: shapeConfig.borderRadius,
-              clipPath: shapeConfig.clipPath,
-              backgroundColor: color,
-              transform: `rotate(${-25 + shapeConfig.rotateOffset}deg)`,
-              zIndex: 2,
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              right: "20%",
-              top: "8%",
-              width: "40%",
-              height: "42%",
-              borderRadius: shapeConfig.borderRadius,
-              clipPath: shapeConfig.clipPath,
-              backgroundColor: color,
-              transform: `rotate(${25 + shapeConfig.rotateOffset}deg)`,
-              zIndex: 2,
-            }}
-          />
 
-          {/* 씨앗 상태에서도 이름 표시 */}
+          {/* 댓글 3개부터 잎 1개 */}
+          {commentCount >= 3 && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: `${stemHeight * 0.42 + 8}px`,
+                width: "20px",
+                height: "12px",
+                borderRadius: "100% 0 100% 0",
+                backgroundColor: "#8fbc7a",
+                transform: "translateX(-95%) rotate(-28deg)",
+                transformOrigin: "right center",
+                zIndex: 2,
+                boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+              }}
+            />
+          )}
+
+          {/* 댓글 4개부터 잎 2개 */}
+          {commentCount >= 4 && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: `${stemHeight * 0.62 + 8}px`,
+                width: "22px",
+                height: "13px",
+                borderRadius: "0 100% 0 100%",
+                backgroundColor: "#79aa68",
+                transform: "translateX(-5%) rotate(28deg)",
+                transformOrigin: "left center",
+                zIndex: 2,
+                boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+              }}
+            />
+          )}
+
+          {/* 씨앗/새싹 머리: 댓글 수에 따라 조금 위로 올라갑니다 */}
           <div
             style={{
               position: "absolute",
               left: "50%",
-              top: "34%",
-              width: "28px",
-              height: "28px",
-              borderRadius: "50%",
+              bottom: `${stemHeight + 2}px`,
+              width: `${sproutSize}px`,
+              height: `${sproutSize}px`,
+              borderRadius: "50% 50% 46% 46%",
               backgroundColor: "#ffe8a3",
-              transform: "translate(-50%, -50%)",
+              transform: "translateX(-50%)",
               zIndex: 999,
               border: "1px solid rgba(0,0,0,0.08)",
               boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
