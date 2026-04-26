@@ -113,7 +113,7 @@ export default function BouquetPage() {
   };
 
   const getCommentAuthorLabel = (comment: SeedComment) => {
-    const authorName = getAuthorName(comment.author);
+    const authorName = getAuthorName(comment.author ?? null);
 
     if (comment.is_anonymous && !isAdmin) return "匿名";
 
