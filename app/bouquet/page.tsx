@@ -12,6 +12,9 @@ type SeedOwner = {
   name: string | null;
 };
 
+type JoinedAuthor = CommentAuthor | CommentAuthor[] | null;
+type JoinedOwner = SeedOwner | SeedOwner[] | null;
+
 type SeedComment = {
   id: string;
   seed_id: string;
@@ -19,7 +22,7 @@ type SeedComment = {
   content: string;
   is_anonymous: boolean;
   created_at: string;
-  author?: CommentAuthor | null;
+  author?: JoinedAuthor;
 };
 
 type BouquetSeed = {
@@ -29,7 +32,7 @@ type BouquetSeed = {
   title: string | null;
   flower_color: string | null;
   created_at: string;
-  owner?: SeedOwner | null;
+  owner?: JoinedOwner;
   comments: SeedComment[];
 };
 
@@ -46,7 +49,9 @@ const FLOWER_COLORS = [
   "#ffb703",
 ];
 
-const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i);
+const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
+  (num) => num !== 5285
+);
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("ja-JP", {
@@ -87,17 +92,36 @@ export default function BouquetPage() {
 
   const canViewComments = Boolean(isOwner || isAdmin);
 
+  const getOwnerName = (owner: JoinedOwner) => {
+    if (Array.isArray(owner)) {
+      return owner[0]?.name ?? null;
+    }
+
+    return owner?.name ?? null;
+  };
+
+  const getAuthorName = (author: JoinedAuthor) => {
+    if (Array.isArray(author)) {
+      return author[0]?.name ?? null;
+    }
+
+    return author?.name ?? null;
+  };
+
   const getDisplayName = (seed: BouquetSeed) => {
-    return seed.owner?.name?.trim() || seed.owner_id;
+    return getOwnerName(seed.owner)?.trim() || seed.owner_id;
   };
 
   const getCommentAuthorLabel = (comment: SeedComment) => {
+    const authorName = getAuthorName(comment.author);
+
     if (comment.is_anonymous && !isAdmin) return "匿名";
+
     if (comment.is_anonymous && isAdmin) {
-      return `匿名（${comment.author?.name || comment.author_id || "不明"}）`;
+      return `匿名（${authorName || comment.author_id || "不明"}）`;
     }
 
-    return comment.author?.name || comment.author_id || "不明";
+    return authorName || comment.author_id || "不明";
   };
 
   const renderFlower = (seed: BouquetSeed) => {
@@ -248,13 +272,15 @@ export default function BouquetPage() {
         return;
       }
 
-      commentRows = commentData ?? [];
+      commentRows = (commentData ?? []) as SeedComment[];
     }
 
-    const mergedSeeds: BouquetSeed[] = (seedRows ?? []).map((seed) => ({
-      ...seed,
-      comments: commentRows.filter((comment) => comment.seed_id === seed.id),
-    }));
+    const mergedSeeds: BouquetSeed[] = ((seedRows ?? []) as BouquetSeed[]).map(
+      (seed) => ({
+        ...seed,
+        comments: commentRows.filter((comment) => comment.seed_id === seed.id),
+      })
+    );
 
     setSeeds(mergedSeeds);
     setLoading(false);
@@ -335,7 +361,7 @@ export default function BouquetPage() {
     setSeeds((prev) =>
       prev.map((seed) =>
         seed.id === openedSeed.id
-          ? { ...seed, comments: [...seed.comments, data] }
+          ? { ...seed, comments: [...seed.comments, data as SeedComment] }
           : seed
       )
     );
@@ -493,6 +519,7 @@ export default function BouquetPage() {
                   lineHeight: 1.1,
                   position: "relative",
                   zIndex: 10,
+                  textAlign: "center",
                 }}
               >
                 {seed ? getDisplayName(seed) : slotNumber}
