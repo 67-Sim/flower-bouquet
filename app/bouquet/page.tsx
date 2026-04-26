@@ -129,8 +129,8 @@ export default function BouquetPage() {
     const commentCount = seed.comments.length;
 
     const growthRatio = Math.min(commentCount, 100) / 100;
-    const size = 28 + growthRatio * 80;
-    const petalSize = 10 + growthRatio * 14;
+    const size = 30 + growthRatio * 80;
+    const petalSize = 10 + growthRatio * 30;
     const petalDistance = 10 + growthRatio * 30;
     const petalCount = commentCount === 0 ? 2 : commentCount < 30 ? 6 : 10;
 
