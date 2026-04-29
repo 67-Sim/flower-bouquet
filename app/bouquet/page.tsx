@@ -1054,6 +1054,11 @@ export default function BouquetPage() {
                 resize: "none",
                 outline: "none",
                 boxSizing: "border-box",
+                backgroundColor: "rgba(255, 255, 255, 0.7)",
+                backdropFilter: "blur(4px)",
+                color: "#333",
+                WebkitAppearance: "none",
+                appearance: "none",
               }}
             />
 
