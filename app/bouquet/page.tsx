@@ -797,6 +797,8 @@ export default function BouquetPage() {
                 marginTop: 0,
                 marginBottom: "10px",
                 lineHeight: 1.3,
+                color: openedSeed.title?.trim() ? "#333" : "#aaa", 
+                fontWeight: openedSeed.title?.trim() ? "600" : "400",
               }}
             >
               {openedSeed.title?.trim() || "まだ強みがありません"}
@@ -937,9 +939,12 @@ export default function BouquetPage() {
                     marginBottom: "16px",
                     borderRadius: "10px",
                     border: "none",
-                    backgroundColor: "#e7c8d8",
-                    cursor: savingSeed ? "default" : "pointer",
-                    opacity: savingSeed ? 0.7 : 1,
+                    backgroundColor: savingSeed ? "#d8b5c5" : "#e7c8d8",
+                    color: "#333",
+                    fontWeight: "600",
+                    cursor: savingSeed ? "not-allowed" : "pointer",
+                    opacity: savingSeed ? 0.8 : 1,
+                    transition: "all 0.2s ease",
                   }}
                 >
                   {savingSeed ? "保存中..." : "自分の種を保存"}
@@ -952,6 +957,8 @@ export default function BouquetPage() {
                 fontSize: "17px",
                 marginTop: 0,
                 marginBottom: "10px",
+                color: "#333",
+                opacity: 1,
               }}
             >
               コメント
@@ -1103,7 +1110,10 @@ export default function BouquetPage() {
                   borderRadius: "10px",
                   border: "1px solid #d8cbbd",
                   backgroundColor: "white",
+                  color: "#333",
+                  fontWeight: "500",
                   cursor: "pointer",
+                  transition: "all 0.2s ease",
                 }}
               >
                 閉じる
@@ -1116,9 +1126,12 @@ export default function BouquetPage() {
                   padding: "10px 14px",
                   borderRadius: "10px",
                   border: "none",
-                  backgroundColor: "#cfe7c8",
-                  cursor: sendingComment ? "default" : "pointer",
-                  opacity: sendingComment ? 0.7 : 1,
+                  backgroundColor: sendingComment ? "#b9d8b1" : "#cfe7c8",
+                  color: "#2f4f2f",
+                  fontWeight: "600",
+                  cursor: sendingComment ? "not-allowed" : "pointer",
+                  opacity: sendingComment ? 0.8 : 1,
+                  transition: "all 0.2s ease",
                 }}
               >
                 {sendingComment ? "送信中..." : "送る"}
