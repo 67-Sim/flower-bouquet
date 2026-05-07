@@ -998,6 +998,8 @@ export default function BouquetPage() {
                         lineHeight: 1.5,
                         fontSize: "14px",
                         wordBreak: "break-word",
+                        color: "#333333",
+                        opacity: 1,
                       }}
                     >
                       <div>{comment.content}</div>
