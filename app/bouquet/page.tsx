@@ -647,7 +647,7 @@ export default function BouquetPage() {
           gap: "12px",
         }}
       >
-        <h1 style={{ fontSize: "28px", margin: 0, lineHeight: 1.2 }}>
+        <h1 style={{ fontSize: "28px", margin: 0, lineHeight: 1.2, color: "#2f2a25", }}>
           🌸 花束
         </h1>
 
@@ -658,6 +658,7 @@ export default function BouquetPage() {
             borderRadius: "10px",
             border: "1px solid #d8cbbd",
             backgroundColor: "#fff",
+            color: "#2f2a25",
             cursor: "pointer",
             whiteSpace: "nowrap",
             flexShrink: 0,
