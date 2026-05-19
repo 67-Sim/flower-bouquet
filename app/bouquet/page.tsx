@@ -37,6 +37,20 @@ type BouquetSeed = {
   comments: SeedComment[];
 };
 
+type BackgroundWorryComment = {
+  id: string;
+  worry_seed_id: string;
+};
+
+type BackgroundWorrySeed = {
+  id: string;
+  x: number;
+  y: number;
+  title: string;
+  flower_color: string | null;
+  comments: BackgroundWorryComment[];
+};
+
 const ADMIN_ID = "comany67";
 
 const FLOWER_COLORS = [
@@ -91,7 +105,8 @@ const FLOWER_SHAPES = [
     value: "wide",
     label: "ちょう",
     borderRadius: "80% 20% 80% 20%",
-    clipPath: "polygon(50% 0%, 100% 24%, 72% 50%, 100% 76%, 50% 100%, 0% 76%, 28% 50%, 0% 24%)",
+    clipPath:
+      "polygon(50% 0%, 100% 24%, 72% 50%, 100% 76%, 50% 100%, 0% 76%, 28% 50%, 0% 24%)",
     widthScale: 1.36,
     heightScale: 0.88,
     rotateOffset: 0,
@@ -100,7 +115,8 @@ const FLOWER_SHAPES = [
     value: "heart",
     label: "ハート",
     borderRadius: "70% 70% 45% 45%",
-    clipPath: "polygon(50% 100%, 10% 58%, 8% 28%, 30% 8%, 50% 28%, 70% 8%, 92% 28%, 90% 58%)",
+    clipPath:
+      "polygon(50% 100%, 10% 58%, 8% 28%, 30% 8%, 50% 28%, 70% 8%, 92% 28%, 90% 58%)",
     widthScale: 1.18,
     heightScale: 1.02,
     rotateOffset: 180,
@@ -118,7 +134,8 @@ const FLOWER_SHAPES = [
     value: "star",
     label: "ほし",
     borderRadius: "30%",
-    clipPath: "polygon(50% 0%, 62% 34%, 98% 35%, 69% 56%, 79% 92%, 50% 70%, 21% 92%, 31% 56%, 2% 35%, 38% 34%)",
+    clipPath:
+      "polygon(50% 0%, 62% 34%, 98% 35%, 69% 56%, 79% 92%, 50% 70%, 21% 92%, 31% 56%, 2% 35%, 38% 34%)",
     widthScale: 1.28,
     heightScale: 1.28,
     rotateOffset: 18,
@@ -128,13 +145,11 @@ const FLOWER_SHAPES = [
 const DEFAULT_FLOWER_SHAPE = FLOWER_SHAPES[0].value;
 
 const getFlowerShapeConfig = (shape: string | null | undefined) => {
-  return (
-    FLOWER_SHAPES.find((item) => item.value === shape) ?? FLOWER_SHAPES[0]
-  );
+  return FLOWER_SHAPES.find((item) => item.value === shape) ?? FLOWER_SHAPES[0];
 };
 
 const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
-  (num) => num !== 5285
+  (num) => num !== 5285,
 );
 
 function formatDateTime(value: string) {
@@ -153,6 +168,9 @@ export default function BouquetPage() {
 
   const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
   const [seeds, setSeeds] = useState<BouquetSeed[]>([]);
+  const [backgroundWorrySeeds, setBackgroundWorrySeeds] = useState<
+    BackgroundWorrySeed[]
+  >([]);
   const [openedSlotNumber, setOpenedSlotNumber] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editColor, setEditColor] = useState(FLOWER_COLORS[0]);
@@ -171,9 +189,7 @@ export default function BouquetPage() {
     return seeds.find((seed) => seed.slot_number === openedSlotNumber) ?? null;
   }, [openedSlotNumber, seeds]);
 
-  const isOwner = Boolean(
-    openedSeed && loggedInUserId === openedSeed.owner_id
-  );
+  const isOwner = Boolean(openedSeed && loggedInUserId === openedSeed.owner_id);
 
   const canViewComments = Boolean(isOwner || isAdmin);
 
@@ -433,6 +449,198 @@ export default function BouquetPage() {
       </div>
     );
   };
+  const renderBackgroundWorrySeed = (seed: BackgroundWorrySeed) => {
+    const commentCount = seed.comments.length;
+    const color = seed.flower_color || "#f8b4d9";
+
+    const seedStage = Math.min(commentCount, 4);
+    const stemHeightByStage = [16, 22, 30, 38, 46];
+    const stemHeight = stemHeightByStage[seedStage];
+
+    const bloomCommentCount = Math.max(commentCount - 5, 0);
+    const growthRatio = Math.min(bloomCommentCount, 80) / 80;
+
+    const flowerSize = 34 + growthRatio * 64;
+    const petalWidth = 12 + growthRatio * 18;
+    const petalHeight = 18 + growthRatio * 34;
+    const petalDistance = 10 + growthRatio * 26;
+    const centerSize = 22 + growthRatio * 12;
+
+    if (commentCount < 5) {
+      return (
+        <div
+          style={{
+            width: "56px",
+            height: "72px",
+            position: "relative",
+            overflow: "visible",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: "6px",
+              width: commentCount === 0 ? "2px" : "3px",
+              height: `${stemHeight}px`,
+              backgroundColor: "#7aa36f",
+              borderRadius: "999px",
+              transform: "translateX(-50%)",
+              zIndex: 1,
+            }}
+          />
+
+          {commentCount >= 3 && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: `${stemHeight * 0.42 + 6}px`,
+                width: "16px",
+                height: "10px",
+                borderRadius: "100% 0 100% 0",
+                backgroundColor: "#8fbc7a",
+                transform: "translateX(-95%) rotate(-28deg)",
+                transformOrigin: "right center",
+                zIndex: 2,
+              }}
+            />
+          )}
+
+          {commentCount >= 4 && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: `${stemHeight * 0.62 + 6}px`,
+                width: "18px",
+                height: "11px",
+                borderRadius: "0 100% 0 100%",
+                backgroundColor: "#79aa68",
+                transform: "translateX(-5%) rotate(28deg)",
+                transformOrigin: "left center",
+                zIndex: 2,
+              }}
+            />
+          )}
+
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: `${stemHeight}px`,
+              width: "26px",
+              height: "26px",
+              borderRadius: "50%",
+              backgroundColor: "#ffe8a3",
+              transform: "translateX(-50%)",
+              zIndex: 10,
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              textAlign: "center",
+              padding: "2px",
+              boxSizing: "border-box",
+              color: "#4b3b2f",
+              WebkitTextFillColor: "#4b3b2f",
+              opacity: 1,
+              fontSize: "7px",
+              fontWeight: 700,
+              lineHeight: 1.05,
+              overflow: "hidden",
+              wordBreak: "keep-all",
+            }}
+          >
+            {seed.title}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          position: "relative",
+          width: `${flowerSize}px`,
+          height: `${flowerSize}px`,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          overflow: "visible",
+        }}
+      >
+        {Array.from({ length: 8 }).map((_, i) => {
+          const angle = (360 / 8) * i;
+
+          return (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                width: 0,
+                height: 0,
+                transform: `rotate(${angle}deg)`,
+                transformOrigin: "center center",
+                zIndex: 1,
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: `${petalWidth}px`,
+                  height: `${petalHeight}px`,
+                  borderRadius: "75% 75% 52% 52%",
+                  backgroundColor: color,
+                  transform: `translate(-50%, calc(-50% - ${petalDistance}px))`,
+                  opacity: 0.96,
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
+                }}
+              />
+            </div>
+          );
+        })}
+
+        <div
+          style={{
+            width: `${centerSize}px`,
+            height: `${centerSize}px`,
+            borderRadius: "50%",
+            backgroundColor: "#ffe8a3",
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 999,
+            border: "1px solid rgba(0,0,0,0.08)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "2px",
+            boxSizing: "border-box",
+            textAlign: "center",
+            overflow: "hidden",
+            color: "#4b3b2f",
+            WebkitTextFillColor: "#4b3b2f",
+            opacity: 1,
+            fontSize: `${Math.max(7, centerSize * 0.22)}px`,
+            fontWeight: 700,
+            lineHeight: 1.05,
+            wordBreak: "keep-all",
+          }}
+        >
+          {seed.title}
+        </div>
+      </div>
+    );
+  };
+
   const loadSeeds = async () => {
     setLoading(true);
     setMessage("");
@@ -449,7 +657,7 @@ export default function BouquetPage() {
     const { data: seedRows, error: seedError } = await supabase
       .from("bouquet_seeds")
       .select(
-        "id, owner_id, slot_number, title, flower_color, flower_shape, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)"
+        "id, owner_id, slot_number, title, flower_color, flower_shape, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)",
       )
       .order("slot_number", { ascending: true });
 
@@ -467,7 +675,7 @@ export default function BouquetPage() {
       const { data: commentData, error: commentError } = await supabase
         .from("seed_comments")
         .select(
-          "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)"
+          "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)",
         )
         .in("seed_id", seedIds)
         .order("created_at", { ascending: true });
@@ -485,10 +693,42 @@ export default function BouquetPage() {
       (seed) => ({
         ...seed,
         comments: commentRows.filter((comment) => comment.seed_id === seed.id),
-      })
+      }),
     );
 
     setSeeds(mergedSeeds);
+
+    const { data: worryRows, error: worryError } = await supabase
+      .from("worry_seeds")
+      .select("id, x, y, title, flower_color")
+      .order("created_at", { ascending: true });
+
+    if (!worryError) {
+      const worryIds = (worryRows ?? []).map((seed) => seed.id);
+
+      let worryCommentRows: BackgroundWorryComment[] = [];
+
+      if (worryIds.length > 0) {
+        const { data: worryComments } = await supabase
+          .from("worry_comments")
+          .select("id, worry_seed_id")
+          .in("worry_seed_id", worryIds);
+
+        worryCommentRows = (worryComments ?? []) as BackgroundWorryComment[];
+      }
+
+      const mergedWorrySeeds: BackgroundWorrySeed[] = (
+        (worryRows ?? []) as Omit<BackgroundWorrySeed, "comments">[]
+      ).map((seed) => ({
+        ...seed,
+        comments: worryCommentRows.filter(
+          (comment) => comment.worry_seed_id === seed.id,
+        ),
+      }));
+
+      setBackgroundWorrySeeds(mergedWorrySeeds);
+    }
+
     setLoading(false);
   };
 
@@ -533,9 +773,14 @@ export default function BouquetPage() {
     setSeeds((prev) =>
       prev.map((seed) =>
         seed.id === openedSeed.id
-          ? { ...seed, title: editTitle, flower_color: editColor, flower_shape: editShape }
-          : seed
-      )
+          ? {
+              ...seed,
+              title: editTitle,
+              flower_color: editColor,
+              flower_shape: editShape,
+            }
+          : seed,
+      ),
     );
   };
 
@@ -555,7 +800,7 @@ export default function BouquetPage() {
         is_anonymous: isAnonymous,
       })
       .select(
-        "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)"
+        "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)",
       )
       .single();
 
@@ -570,8 +815,8 @@ export default function BouquetPage() {
       prev.map((seed) =>
         seed.id === openedSeed.id
           ? { ...seed, comments: [...seed.comments, data as SeedComment] }
-          : seed
-      )
+          : seed,
+      ),
     );
 
     setCommentText("");
@@ -598,7 +843,7 @@ export default function BouquetPage() {
       prev.map((seed) => ({
         ...seed,
         comments: seed.comments.filter((comment) => comment.id !== commentId),
-      }))
+      })),
     );
   };
 
@@ -634,8 +879,35 @@ export default function BouquetPage() {
         alignItems: "center",
         padding: "20px 14px 32px",
         overflowX: "hidden",
+        position: "relative",
+        isolation: "isolate",
       }}
     >
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+          overflow: "hidden",
+          opacity: 0.42,
+        }}
+      >
+        {backgroundWorrySeeds.map((seed) => (
+          <div
+            key={seed.id}
+            style={{
+              position: "absolute",
+              left: `${seed.x}px`,
+              top: `${seed.y}px`,
+              transform: "translate(-50%, -50%) scale(0.78)",
+              transformOrigin: "center center",
+            }}
+          >
+            {renderBackgroundWorrySeed(seed)}
+          </div>
+        ))}
+      </div>
       <div
         style={{
           width: "100%",
@@ -645,6 +917,8 @@ export default function BouquetPage() {
           alignItems: "center",
           marginBottom: "20px",
           gap: "12px",
+          position: "relative",
+          zIndex: 20,
         }}
       >
         <button
@@ -668,7 +942,6 @@ export default function BouquetPage() {
         >
           🌸 花束
         </button>
-
 
         <button
           onClick={handleLogout}
@@ -696,6 +969,8 @@ export default function BouquetPage() {
             color: "#8a4b4b",
             fontSize: "14px",
             lineHeight: 1.5,
+            position: "relative",
+            zIndex: 20,
           }}
         >
           {message}
@@ -710,6 +985,8 @@ export default function BouquetPage() {
           gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
           gap: "10px",
           overflow: "visible",
+          position: "relative",
+          zIndex: 20,
         }}
       >
         {SLOT_NUMBERS.map((slotNumber) => {
@@ -817,7 +1094,7 @@ export default function BouquetPage() {
                 marginTop: 0,
                 marginBottom: "10px",
                 lineHeight: 1.3,
-                color: openedSeed.title?.trim() ? "#333" : "#aaa", 
+                color: openedSeed.title?.trim() ? "#333" : "#aaa",
                 fontWeight: openedSeed.title?.trim() ? "600" : "400",
               }}
             >
