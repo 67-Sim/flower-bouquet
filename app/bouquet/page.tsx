@@ -647,9 +647,28 @@ export default function BouquetPage() {
           gap: "12px",
         }}
       >
-        <h1 style={{ fontSize: "28px", margin: 0, lineHeight: 1.2, color: "#2f2a25", }}>
+        <button
+          onClick={() => router.push("/bouquet/background")}
+          style={{
+            fontSize: "28px",
+            margin: 0,
+            lineHeight: 1.2,
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            padding: 0,
+            color: "#2f2a25",
+            WebkitTextFillColor: "#2f2a25",
+            opacity: 1,
+            fontWeight: 700,
+            position: "relative",
+            zIndex: 999,
+            pointerEvents: "auto",
+          }}
+        >
           🌸 花束
-        </h1>
+        </button>
+
 
         <button
           onClick={handleLogout}
