@@ -143,9 +143,6 @@ export default function BackgroundPage() {
   const handleBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).dataset.seed === "true") return;
 
-    const ok = confirm("悩みの新芽を作りますか？");
-    if (!ok) return;
-
     const rect = e.currentTarget.getBoundingClientRect();
 
     setClickedPosition({
