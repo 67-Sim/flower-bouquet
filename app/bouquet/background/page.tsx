@@ -74,6 +74,14 @@ export default function BackgroundPage() {
     loggedInUserId &&
     (openedSeed.creator_id === loggedInUserId || isAdmin);
 
+  const getSeedAuthorName = (seed: WorrySeed) => {
+    return seed.is_anonymous ? "匿名" : seed.creator_id;
+  };
+
+  const getCommentAuthorName = (comment: WorryComment) => {
+    return comment.is_anonymous ? "匿名" : comment.author_id;
+  };
+
   const textStyle = {
     color: "#2f2a25",
     WebkitTextFillColor: "#2f2a25",
@@ -93,6 +101,17 @@ export default function BackgroundPage() {
     opacity: 1,
     fontSize: "15px",
   };
+
+  const visibilityButtonStyle = (active: boolean) => ({
+    flex: 1,
+    padding: "10px",
+    borderRadius: "10px",
+    border: active ? "2px solid #7aa36f" : "1px solid #d8cbbd",
+    backgroundColor: active ? "#e7f3e2" : "#fff",
+    cursor: "pointer",
+    fontSize: "14px",
+    ...textStyle,
+  });
 
   const loadSeeds = async () => {
     const currentUserId = localStorage.getItem("logged-in-user-id");
@@ -140,8 +159,8 @@ export default function BackgroundPage() {
     loadSeeds();
   }, []);
 
-  const handleBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).dataset.seed === "true") return;
+  const handleBackgroundClick = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("[data-seed='true']")) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
 
@@ -274,10 +293,7 @@ export default function BackgroundPage() {
     const ok = confirm("この悩みの新芽を削除しますか？");
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("worry_seeds")
-      .delete()
-      .eq("id", openedSeed.id);
+    const { error } = await supabase.from("worry_seeds").delete().eq("id", openedSeed.id);
 
     if (error) {
       console.log(error.message);
@@ -305,10 +321,7 @@ export default function BackgroundPage() {
     const ok = confirm("このコメントを削除しますか？");
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("worry_comments")
-      .delete()
-      .eq("id", commentId);
+    const { error } = await supabase.from("worry_comments").delete().eq("id", commentId);
 
     if (error) {
       console.log(error.message);
@@ -540,12 +553,20 @@ export default function BackgroundPage() {
         戻る
       </button>
 
-      <div onClick={handleBackgroundClick} style={{ width: "100%", height: "100%", position: "relative" }}>
+      <div
+        onPointerUp={handleBackgroundClick}
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          touchAction: "manipulation",
+        }}
+      >
         {worrySeeds.map((seed) => (
           <div
             key={seed.id}
             data-seed="true"
-            onClick={(e) => {
+            onPointerUp={(e) => {
               e.stopPropagation();
               setOpenedSeedId(seed.id);
               setIsEditingSeed(false);
@@ -598,10 +619,19 @@ export default function BackgroundPage() {
               匿名で作る
             </label>
 
-            <select value={newVisibility} onChange={(e) => setNewVisibility(e.target.value)} style={{ ...inputStyle, marginTop: "12px" }}>
-              <option value="owner">コメントは自分だけ見る</option>
-              <option value="public">コメントをみんなに公開</option>
-            </select>
+            <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
+              コメントの公開範囲
+            </p>
+
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <button type="button" onClick={() => setNewVisibility("owner")} style={visibilityButtonStyle(newVisibility === "owner")}>
+                自分だけ
+              </button>
+
+              <button type="button" onClick={() => setNewVisibility("public")} style={visibilityButtonStyle(newVisibility === "public")}>
+                みんなに公開
+              </button>
+            </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px" }}>
               <button onClick={() => setShowCreateModal(false)} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid #d8cbbd", backgroundColor: "#fff", cursor: "pointer", ...textStyle }}>
@@ -649,6 +679,10 @@ export default function BackgroundPage() {
             {!isEditingSeed ? (
               <>
                 <h2 style={textStyle}>{openedSeed.title}</h2>
+
+                <p style={{ fontSize: "12px", marginTop: "-6px", color: "#7a6a5c", WebkitTextFillColor: "#7a6a5c" }}>
+                  作成者：{getSeedAuthorName(openedSeed)}
+                </p>
 
                 <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, ...textStyle }}>
                   {openedSeed.content}
@@ -714,10 +748,19 @@ export default function BackgroundPage() {
                   匿名で作る
                 </label>
 
-                <select value={editVisibility} onChange={(e) => setEditVisibility(e.target.value)} style={{ ...inputStyle, marginTop: "12px" }}>
-                  <option value="owner">コメントは自分だけ見る</option>
-                  <option value="public">コメントをみんなに公開</option>
-                </select>
+                <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
+                  コメントの公開範囲
+                </p>
+
+                <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+                  <button type="button" onClick={() => setEditVisibility("owner")} style={visibilityButtonStyle(editVisibility === "owner")}>
+                    自分だけ
+                  </button>
+
+                  <button type="button" onClick={() => setEditVisibility("public")} style={visibilityButtonStyle(editVisibility === "public")}>
+                    みんなに公開
+                  </button>
+                </div>
 
                 <div style={{ display: "flex", gap: "8px", marginTop: "12px", marginBottom: "12px" }}>
                   <button
@@ -767,6 +810,10 @@ export default function BackgroundPage() {
 
                   return (
                     <div key={comment.id} style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "10px", ...textStyle }}>
+                      <div style={{ fontSize: "12px", color: "#7a6a5c", WebkitTextFillColor: "#7a6a5c", marginBottom: "4px" }}>
+                        {getCommentAuthorName(comment)}
+                      </div>
+
                       <div>{comment.content}</div>
 
                       {canDeleteComment && (
