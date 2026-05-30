@@ -15,6 +15,11 @@ const FLOWER_COLORS = [
   "#f28482",
 ];
 
+type AppUser = {
+  id: string;
+  name: string;
+};
+
 type WorryComment = {
   id: string;
   worry_seed_id: string;
@@ -44,6 +49,7 @@ export default function BackgroundPage() {
   const router = useRouter();
 
   const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
+  const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
   const [worrySeeds, setWorrySeeds] = useState<WorrySeed[]>([]);
   const [clickedPosition, setClickedPosition] = useState<{ x: number; y: number } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -74,12 +80,17 @@ export default function BackgroundPage() {
     loggedInUserId &&
     (openedSeed.creator_id === loggedInUserId || isAdmin);
 
+  const getUserName = (userId: string | null | undefined) => {
+    if (!userId) return "不明";
+    return userNameMap[userId] ?? userId;
+  };
+
   const getSeedAuthorName = (seed: WorrySeed) => {
-    return seed.is_anonymous ? "匿名" : seed.creator_id;
+    return seed.is_anonymous ? "匿名" : getUserName(seed.creator_id);
   };
 
   const getCommentAuthorName = (comment: WorryComment) => {
-    return comment.is_anonymous ? "匿名" : comment.author_id;
+    return comment.is_anonymous ? "匿名" : getUserName(comment.author_id);
   };
 
   const textStyle = {
@@ -113,6 +124,17 @@ export default function BackgroundPage() {
     ...textStyle,
   });
 
+  const toggleButtonStyle = (active: boolean) => ({
+    flex: 1,
+    padding: "10px",
+    borderRadius: "10px",
+    border: active ? "2px solid #7aa36f" : "1px solid #d8cbbd",
+    backgroundColor: active ? "#e7f3e2" : "#fff",
+    cursor: "pointer",
+    fontSize: "14px",
+    ...textStyle,
+  });
+
   const loadSeeds = async () => {
     const currentUserId = localStorage.getItem("logged-in-user-id");
 
@@ -122,6 +144,20 @@ export default function BackgroundPage() {
     }
 
     setLoggedInUserId(currentUserId);
+
+    const { data: userRows, error: userError } = await supabase
+      .from("users")
+      .select("id, name");
+
+    if (!userError && userRows) {
+      const nameMap: Record<string, string> = {};
+
+      (userRows as AppUser[]).forEach((user) => {
+        nameMap[user.id] = user.name;
+      });
+
+      setUserNameMap(nameMap);
+    }
 
     const { data: seedRows, error: seedError } = await supabase
       .from("worry_seeds")
@@ -359,7 +395,10 @@ export default function BackgroundPage() {
 
     if (commentCount < 5) {
       return (
-        <div data-seed="true" style={{ width: "70px", height: "90px", position: "relative", overflow: "visible" }}>
+        <div
+          data-seed="true"
+          style={{ width: "70px", height: "90px", position: "relative", overflow: "visible" }}
+        >
           <div
             style={{
               position: "absolute",
@@ -596,7 +635,16 @@ export default function BackgroundPage() {
             zIndex: 1000,
           }}
         >
-          <div style={{ width: "100%", maxWidth: "360px", backgroundColor: "#fffaf5", borderRadius: "18px", padding: "18px", ...textStyle }}>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "360px",
+              backgroundColor: "#fffaf5",
+              borderRadius: "18px",
+              padding: "18px",
+              ...textStyle,
+            }}
+          >
             <h2 style={textStyle}>悩みの新芽</h2>
 
             <input
@@ -614,31 +662,76 @@ export default function BackgroundPage() {
               style={{ ...inputStyle, minHeight: "100px" }}
             />
 
-            <label style={{ display: "flex", gap: "8px", marginTop: "10px", ...textStyle }}>
-              <input type="checkbox" checked={newAnonymous} onChange={(e) => setNewAnonymous(e.target.checked)} />
-              匿名で作る
-            </label>
+            <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
+              作成者の表示
+            </p>
+
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <button
+                type="button"
+                onClick={() => setNewAnonymous(true)}
+                style={toggleButtonStyle(newAnonymous)}
+              >
+                匿名
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNewAnonymous(false)}
+                style={toggleButtonStyle(!newAnonymous)}
+              >
+                名前を表示
+              </button>
+            </div>
 
             <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
               コメントの公開範囲
             </p>
 
             <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
-              <button type="button" onClick={() => setNewVisibility("owner")} style={visibilityButtonStyle(newVisibility === "owner")}>
+              <button
+                type="button"
+                onClick={() => setNewVisibility("owner")}
+                style={visibilityButtonStyle(newVisibility === "owner")}
+              >
                 自分だけ
               </button>
 
-              <button type="button" onClick={() => setNewVisibility("public")} style={visibilityButtonStyle(newVisibility === "public")}>
+              <button
+                type="button"
+                onClick={() => setNewVisibility("public")}
+                style={visibilityButtonStyle(newVisibility === "public")}
+              >
                 みんなに公開
               </button>
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px" }}>
-              <button onClick={() => setShowCreateModal(false)} style={{ padding: "10px 14px", borderRadius: "10px", border: "1px solid #d8cbbd", backgroundColor: "#fff", cursor: "pointer", ...textStyle }}>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  border: "1px solid #d8cbbd",
+                  backgroundColor: "#fff",
+                  cursor: "pointer",
+                  ...textStyle,
+                }}
+              >
                 閉じる
               </button>
 
-              <button onClick={handleCreateSeed} style={{ padding: "10px 14px", borderRadius: "10px", border: "none", backgroundColor: "#cfe7c8", cursor: "pointer", ...textStyle }}>
+              <button
+                onClick={handleCreateSeed}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  border: "none",
+                  backgroundColor: "#cfe7c8",
+                  cursor: "pointer",
+                  ...textStyle,
+                }}
+              >
                 作る
               </button>
             </div>
@@ -680,7 +773,14 @@ export default function BackgroundPage() {
               <>
                 <h2 style={textStyle}>{openedSeed.title}</h2>
 
-                <p style={{ fontSize: "12px", marginTop: "-6px", color: "#7a6a5c", WebkitTextFillColor: "#7a6a5c" }}>
+                <p
+                  style={{
+                    fontSize: "12px",
+                    marginTop: "-6px",
+                    color: "#7a6a5c",
+                    WebkitTextFillColor: "#7a6a5c",
+                  }}
+                >
                   作成者：{getSeedAuthorName(openedSeed)}
                 </p>
 
@@ -743,21 +843,46 @@ export default function BackgroundPage() {
                   style={{ ...inputStyle, minHeight: "100px" }}
                 />
 
-                <label style={{ display: "flex", gap: "8px", marginTop: "10px", ...textStyle }}>
-                  <input type="checkbox" checked={editAnonymous} onChange={(e) => setEditAnonymous(e.target.checked)} />
-                  匿名で作る
-                </label>
+                <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
+                  作成者の表示
+                </p>
+
+                <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditAnonymous(true)}
+                    style={toggleButtonStyle(editAnonymous)}
+                  >
+                    匿名
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditAnonymous(false)}
+                    style={toggleButtonStyle(!editAnonymous)}
+                  >
+                    名前を表示
+                  </button>
+                </div>
 
                 <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
                   コメントの公開範囲
                 </p>
 
                 <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
-                  <button type="button" onClick={() => setEditVisibility("owner")} style={visibilityButtonStyle(editVisibility === "owner")}>
+                  <button
+                    type="button"
+                    onClick={() => setEditVisibility("owner")}
+                    style={visibilityButtonStyle(editVisibility === "owner")}
+                  >
                     自分だけ
                   </button>
 
-                  <button type="button" onClick={() => setEditVisibility("public")} style={visibilityButtonStyle(editVisibility === "public")}>
+                  <button
+                    type="button"
+                    onClick={() => setEditVisibility("public")}
+                    style={visibilityButtonStyle(editVisibility === "public")}
+                  >
                     みんなに公開
                   </button>
                 </div>
@@ -809,8 +934,23 @@ export default function BackgroundPage() {
                     isAdmin;
 
                   return (
-                    <div key={comment.id} style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "10px", ...textStyle }}>
-                      <div style={{ fontSize: "12px", color: "#7a6a5c", WebkitTextFillColor: "#7a6a5c", marginBottom: "4px" }}>
+                    <div
+                      key={comment.id}
+                      style={{
+                        backgroundColor: "#fff",
+                        borderRadius: "10px",
+                        padding: "10px",
+                        ...textStyle,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "#7a6a5c",
+                          WebkitTextFillColor: "#7a6a5c",
+                          marginBottom: "4px",
+                        }}
+                      >
                         {getCommentAuthorName(comment)}
                       </div>
 
@@ -849,10 +989,27 @@ export default function BackgroundPage() {
               style={{ ...inputStyle, minHeight: "90px" }}
             />
 
-            <label style={{ display: "flex", gap: "8px", marginTop: "10px", ...textStyle }}>
-              <input type="checkbox" checked={commentAnonymous} onChange={(e) => setCommentAnonymous(e.target.checked)} />
-              匿名で送る
-            </label>
+            <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
+              コメント投稿者の表示
+            </p>
+
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <button
+                type="button"
+                onClick={() => setCommentAnonymous(true)}
+                style={toggleButtonStyle(commentAnonymous)}
+              >
+                匿名
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCommentAnonymous(false)}
+                style={toggleButtonStyle(!commentAnonymous)}
+              >
+                名前を表示
+              </button>
+            </div>
 
             <button
               onClick={handleAddComment}
