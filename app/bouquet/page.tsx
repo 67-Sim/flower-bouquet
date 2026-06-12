@@ -231,8 +231,7 @@ export default function BouquetPage() {
     const commentCount = seed.comments.length;
     const displayName = getDisplayName(seed);
 
-    const bloomCommentCount = Math.max(commentCount - 5, 0);
-    const growthRatio = Math.min(bloomCommentCount, 100) / 100;
+    const growthRatio = 0;
 
     // 댓글 0~4개까지는 씨앗/새싹 단계, 5개부터 꽃이 피는 단계입니다.
     const seedStage = Math.min(commentCount, 4);
@@ -1337,19 +1336,7 @@ export default function BouquetPage() {
                   ))
                 )}
               </div>
-            ) : (
-              <p
-                style={{
-                  color: "#7a6b5d",
-                  fontSize: "14px",
-                  lineHeight: 1.5,
-                  marginTop: 0,
-                  marginBottom: "14px",
-                }}
-              >
-                コメント数：{openedSeed.comments.length}
-              </p>
-            )}
+            ) : null}
 
             <textarea
               value={commentText}
