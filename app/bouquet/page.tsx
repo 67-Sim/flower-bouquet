@@ -1259,7 +1259,7 @@ export default function BouquetPage() {
           zIndex: 0,
           pointerEvents: "none",
           overflow: "hidden",
-          opacity: 0.56,
+          opacity: 0.42,
         }}
       >
         {backgroundWorrySeeds.map((seed) => (
@@ -1441,37 +1441,39 @@ export default function BouquetPage() {
             zIndex: 50,
           }}
         />
+        {/* 花束の下側をまとめる淡い包装紙 */}
         <div
           style={{
             position: "absolute",
             left: "50%",
-            bottom: "-2px",
-            width: "90%",
-            height: "236px",
+            bottom: "-6px",
+            width: "78%",
+            height: "190px",
             transform: "translateX(-50%)",
-            clipPath: "polygon(7% 100%, 93% 100%, 78% 18%, 50% 0%, 22% 18%)",
+            clipPath: "polygon(7% 100%, 93% 100%, 73% 18%, 50% 0%, 27% 18%)",
             background:
-              "linear-gradient(135deg, rgba(255,238,218,0.96), rgba(255,250,244,0.78) 46%, rgba(232,196,174,0.94))",
-            border: "1px solid rgba(150, 102, 72, 0.34)",
-            boxShadow: "0 -8px 24px rgba(89, 64, 48, 0.13), inset 0 0 18px rgba(255,255,255,0.44)",
+              "linear-gradient(135deg, rgba(255,238,222,0.96), rgba(255,250,244,0.78) 48%, rgba(232,196,176,0.92))",
+            border: "1px solid rgba(172, 126, 95, 0.34)",
+            boxShadow: "0 -6px 22px rgba(89, 64, 48, 0.11)",
             pointerEvents: "none",
             zIndex: 2,
           }}
         />
-        {/* 花束の後ろに見える布・包装紙のレイヤー */}
+
+        {/* 花束を包み込む和紙・包装紙のレイヤー */}
         <div
           style={{
             position: "absolute",
             left: "50%",
-            bottom: "66px",
-            width: "86%",
-            height: "410px",
-            transform: "translateX(-50%) rotate(-6deg)",
-            clipPath: "polygon(50% 0%, 98% 20%, 84% 100%, 13% 100%, 2% 20%)",
+            bottom: "76px",
+            width: "70%",
+            height: "380px",
+            transform: "translateX(-50%) rotate(-4deg)",
+            clipPath: "polygon(50% 0%, 91% 17%, 83% 100%, 17% 100%, 9% 17%)",
             background:
-              "linear-gradient(145deg, rgba(255,255,255,0.9), rgba(255,231,210,0.74) 48%, rgba(226,184,165,0.86))",
-            border: "1px solid rgba(154, 105, 76, 0.28)",
-            boxShadow: "0 16px 30px rgba(89,64,48,0.13), inset 0 0 20px rgba(255,255,255,0.5)",
+              "linear-gradient(145deg, rgba(255,252,247,0.9), rgba(255,230,211,0.74) 46%, rgba(229,188,166,0.86))",
+            border: "1px solid rgba(173, 125, 95, 0.34)",
+            boxShadow: "0 16px 30px rgba(89,64,48,0.12)",
             pointerEvents: "none",
             zIndex: 3,
           }}
@@ -1479,33 +1481,33 @@ export default function BouquetPage() {
         <div
           style={{
             position: "absolute",
-            left: "33%",
-            bottom: "78px",
-            width: "50%",
-            height: "372px",
-            transform: "translateX(-50%) rotate(14deg)",
-            clipPath: "polygon(46% 0%, 100% 23%, 76% 100%, 0 94%, 10% 18%)",
-            background:
-              "linear-gradient(135deg, rgba(255,250,244,0.84), rgba(244,210,190,0.72) 55%, rgba(255,255,255,0.58))",
-            border: "1px solid rgba(154, 105, 76, 0.24)",
-            boxShadow: "0 10px 20px rgba(89,64,48,0.08)",
-            pointerEvents: "none",
-            zIndex: 3,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            right: "6%",
-            bottom: "82px",
-            width: "46%",
+            left: "32%",
+            bottom: "84px",
+            width: "38%",
             height: "360px",
-            transform: "rotate(-14deg)",
-            clipPath: "polygon(54% 0%, 94% 16%, 100% 94%, 18% 100%, 0 24%)",
+            transform: "translateX(-50%) rotate(16deg)",
+            clipPath: "polygon(50% 0%, 100% 24%, 77% 100%, 5% 94%, 14% 18%)",
             background:
-              "linear-gradient(145deg, rgba(255,246,236,0.82), rgba(236,202,186,0.72) 55%, rgba(255,255,255,0.52))",
-            border: "1px solid rgba(154, 105, 76, 0.22)",
-            boxShadow: "0 10px 20px rgba(89,64,48,0.08)",
+              "linear-gradient(135deg, rgba(255,250,244,0.86), rgba(246,211,191,0.74) 55%, rgba(255,255,255,0.58))",
+            border: "1px solid rgba(173, 125, 95, 0.28)",
+            boxShadow: "0 12px 24px rgba(89,64,48,0.08)",
+            pointerEvents: "none",
+            zIndex: 3,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            right: "7%",
+            bottom: "88px",
+            width: "36%",
+            height: "350px",
+            transform: "rotate(-16deg)",
+            clipPath: "polygon(52% 0%, 92% 16%, 98% 94%, 19% 100%, 4% 24%)",
+            background:
+              "linear-gradient(145deg, rgba(255,246,236,0.82), rgba(238,202,185,0.72) 55%, rgba(255,255,255,0.54))",
+            border: "1px solid rgba(173, 125, 95, 0.26)",
+            boxShadow: "0 12px 24px rgba(89,64,48,0.08)",
             pointerEvents: "none",
             zIndex: 3,
           }}
@@ -1514,28 +1516,12 @@ export default function BouquetPage() {
           style={{
             position: "absolute",
             left: "50%",
-            bottom: "94px",
+            bottom: "96px",
             width: "2px",
-            height: "320px",
+            height: "316px",
             transform: "translateX(-50%) rotate(2deg)",
             background:
-              "linear-gradient(180deg, transparent, rgba(154,103,78,0.16), transparent)",
-            pointerEvents: "none",
-            zIndex: 4,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            bottom: "72px",
-            width: "82%",
-            height: "390px",
-            transform: "translateX(-50%) rotate(-4deg)",
-            background:
-              "repeating-linear-gradient(115deg, rgba(132,91,65,0.07) 0px, rgba(132,91,65,0.07) 1px, transparent 1px, transparent 12px)",
-            clipPath: "polygon(50% 0%, 98% 20%, 84% 100%, 13% 100%, 2% 20%)",
-            opacity: 0.75,
+              "linear-gradient(180deg, transparent, rgba(154,103,78,0.22), transparent)",
             pointerEvents: "none",
             zIndex: 4,
           }}
@@ -1555,8 +1541,8 @@ export default function BouquetPage() {
         >
           {seeds.map((seed) => {
             const position = getSeedPosition(seed);
-            const stemStartX = 50 + (position.x - 50) * 0.08;
-            const stemStartY = 92;
+            const stemStartX = 50 + (position.x - 50) * 0.05;
+            const stemStartY = 89;
             const stemEndX = position.x;
             const stemEndY = position.y;
             return (
@@ -1583,13 +1569,15 @@ export default function BouquetPage() {
             );
           })}
         </svg>
+
+        {/* 花束を結ぶ細い金色リボン */}
         <div
           style={{
             position: "absolute",
             left: "50%",
-            bottom: "22px",
-            width: "90%",
-            maxWidth: "500px",
+            bottom: "42px",
+            width: "58%",
+            maxWidth: "340px",
             height: "92px",
             transform: "translateX(-50%) rotate(-1deg)",
             pointerEvents: "none",
@@ -1600,87 +1588,99 @@ export default function BouquetPage() {
             style={{
               position: "absolute",
               left: "50%",
-              top: "32px",
+              top: "26px",
               width: "100%",
-              height: "34px",
+              height: "30px",
               transform: "translateX(-50%)",
               borderRadius: "999px",
               background:
-                "linear-gradient(180deg, #fff5b8 0%, #f8d75c 42%, #d89b1c 100%)",
-              border: "1px solid rgba(142, 95, 18, 0.38)",
+                "linear-gradient(180deg, #fff4a8 0%, #f8cf48 45%, #d99a18 100%)",
+              border: "1px solid rgba(154, 103, 18, 0.34)",
               boxShadow:
-                "inset 0 2px 3px rgba(255,255,255,0.72), inset 0 -3px 5px rgba(144,93,16,0.18), 0 7px 16px rgba(89, 64, 48, 0.2)",
+                "inset 0 2px 3px rgba(255,255,255,0.62), inset 0 -3px 5px rgba(139,91,12,0.2), 0 5px 12px rgba(89,64,48,0.18)",
             }}
           />
           <div
             style={{
               position: "absolute",
               left: "50%",
-              top: "35px",
-              width: "96%",
-              height: "1px",
-              transform: "translateX(-50%)",
-              backgroundColor: "rgba(255,255,255,0.78)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "50px",
-              width: "104px",
-              height: "44px",
+              top: "38px",
+              width: "92px",
+              height: "42px",
               borderRadius: "58% 12px 58% 12px",
               background:
-                "linear-gradient(135deg, #fff0a2 0%, #f3c23a 58%, #c98413 100%)",
-              transform: "translate(-98%, -50%) rotate(-23deg)",
-              boxShadow: "0 6px 12px rgba(89, 64, 48, 0.2)",
+                "linear-gradient(135deg, #ffe98a 0%, #f1bd2f 62%, #b9770f 100%)",
+              transform: "translate(-100%, -50%) rotate(-26deg)",
+              boxShadow: "0 5px 11px rgba(89, 64, 48, 0.18)",
             }}
           />
           <div
             style={{
               position: "absolute",
               left: "50%",
-              top: "50px",
-              width: "104px",
-              height: "44px",
+              top: "38px",
+              width: "92px",
+              height: "42px",
               borderRadius: "12px 58% 12px 58%",
               background:
-                "linear-gradient(135deg, #fff4b2 0%, #f3c23a 58%, #c98413 100%)",
-              transform: "translate(-2%, -50%) rotate(23deg)",
-              boxShadow: "0 6px 12px rgba(89, 64, 48, 0.2)",
+                "linear-gradient(135deg, #fff0a0 0%, #f1bd2f 62%, #b9770f 100%)",
+              transform: "translate(0%, -50%) rotate(26deg)",
+              boxShadow: "0 5px 11px rgba(89, 64, 48, 0.18)",
             }}
           />
           <div
             style={{
               position: "absolute",
               left: "50%",
-              top: "50px",
-              width: "66px",
+              top: "39px",
+              width: "58px",
               height: "42px",
               borderRadius: "999px",
               background:
-                "linear-gradient(135deg, #fff5b2 0%, #efbc2e 64%, #c88513 100%)",
+                "linear-gradient(135deg, #fff4ad 0%, #e9ad23 65%, #b8730c 100%)",
               transform: "translate(-50%, -50%)",
-              border: "1px solid rgba(127,82,12,0.2)",
               boxShadow:
-                "inset 0 2px 5px rgba(255,255,255,0.66), inset 0 -3px 5px rgba(126,82,12,0.18), 0 5px 10px rgba(89,64,48,0.22)",
+                "inset 0 2px 5px rgba(255,255,255,0.6), 0 5px 10px rgba(89,64,48,0.22)",
             }}
           />
           <div
             style={{
               position: "absolute",
               left: "50%",
-              top: "31px",
-              width: "86%",
+              top: "64px",
+              width: "44px",
+              height: "40px",
+              clipPath: "polygon(0 0, 100% 0, 82% 100%, 50% 72%, 16% 100%)",
+              background: "linear-gradient(180deg, #e9ad23 0%, #b8730c 100%)",
+              transform: "translateX(-126%) rotate(10deg)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "64px",
+              width: "44px",
+              height: "40px",
+              clipPath: "polygon(0 0, 100% 0, 84% 100%, 50% 72%, 18% 100%)",
+              background: "linear-gradient(180deg, #e9ad23 0%, #b8730c 100%)",
+              transform: "translateX(26%) rotate(-10deg)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "36px",
+              width: "82%",
               transform: "translateX(-50%)",
-              color: "#6e4610",
-              fontSize: "clamp(8px, 2vw, 12px)",
+              color: "#6f4611",
+              fontSize: "clamp(8px, 1.7vw, 11px)",
               fontWeight: 800,
-              lineHeight: 1.28,
-              letterSpacing: "0.035em",
+              lineHeight: 1.25,
+              letterSpacing: "0.02em",
               textAlign: "center",
-              textShadow: "0 1px 0 rgba(255,255,255,0.78)",
+              textShadow: "0 1px 0 rgba(255,255,255,0.68)",
               whiteSpace: "normal",
             }}
           >
@@ -1690,32 +1690,6 @@ export default function BouquetPage() {
             <br />
             笑顔溢れる世界を創り出す
           </div>
-          <div
-            style={{
-              position: "absolute",
-              left: "74px",
-              top: "64px",
-              width: "48px",
-              height: "34px",
-              clipPath: "polygon(0 0, 100% 0, 82% 100%, 50% 68%, 16% 100%)",
-              background: "linear-gradient(180deg, #e9b12b 0%, #bd7d12 100%)",
-              transform: "rotate(8deg)",
-              boxShadow: "0 5px 10px rgba(89,64,48,0.16)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              right: "74px",
-              top: "64px",
-              width: "48px",
-              height: "34px",
-              clipPath: "polygon(0 0, 100% 0, 84% 100%, 50% 68%, 18% 100%)",
-              background: "linear-gradient(180deg, #e9b12b 0%, #bd7d12 100%)",
-              transform: "rotate(-8deg)",
-              boxShadow: "0 5px 10px rgba(89,64,48,0.16)",
-            }}
-          />
         </div>
         {renderLaunchArrow()}
         {seeds.map((seed) => {
