@@ -1226,7 +1226,7 @@ export default function BouquetPage() {
       <main
         style={{
           minHeight: "100vh",
-          backgroundColor: "#f7f4ef",
+          backgroundColor: "#ffffff",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
@@ -1242,7 +1242,7 @@ export default function BouquetPage() {
     <main
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f7f4ef",
+        backgroundColor: "#ffffff",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -1395,14 +1395,10 @@ export default function BouquetPage() {
           maxWidth: "420px",
           aspectRatio: "1 / 1",
           marginBottom: "132px",
-          borderRadius: "50%",
-          border: "10px solid #e8b7c2",
-          outline: "2px dashed rgba(122, 93, 70, 0.32)",
-          outlineOffset: "-18px",
-          background:
-            "radial-gradient(circle at 50% 34%, rgba(255,255,255,0.98) 0%, rgba(255,250,245,0.9) 45%, rgba(255,238,230,0.86) 100%)",
-          boxShadow:
-            "0 14px 30px rgba(89, 64, 48, 0.15), inset 0 0 0 3px rgba(255,255,255,0.82)",
+          background: "transparent",
+          border: "none",
+          outline: "none",
+          boxShadow: "none",
           position: "relative",
           zIndex: 20,
           overflow: "visible",
@@ -1411,20 +1407,6 @@ export default function BouquetPage() {
           touchAction: isMoveMode ? "pan-y" : "auto",
         }}
       >
-        {/* 꽃이 움직일 수 있는 원: 이 안에서만 꽃을 움직입니다 */}
-        <div
-          style={{
-            position: "absolute",
-            inset: "18px",
-            borderRadius: "50%",
-            border: "2px solid rgba(232, 183, 194, 0.78)",
-            boxShadow:
-              "inset 0 0 24px rgba(255, 255, 255, 0.75), inset 0 -12px 24px rgba(232, 183, 194, 0.16)",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-
         {/* 꽃 줄기: 원 안의 꽃에서 원 바깥 리본 매듭까지 내려옵니다 */}
         <svg
           viewBox="0 0 100 124"
