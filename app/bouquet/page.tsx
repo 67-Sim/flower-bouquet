@@ -1459,17 +1459,20 @@ export default function BouquetPage() {
         >
           {seeds.map((seed) => {
             const position = getSeedPosition(seed);
-            const stemEndY = clamp(position.y + 5, 8, 90);
+            const stemStartX = 50 + (position.x - 50) * 0.08;
+            const stemStartY = 92;
+            const stemEndX = position.x;
+            const stemEndY = position.y;
 
             return (
               <line
                 key={`stem-${seed.id}`}
-                x1="50"
-                y1="96"
-                x2={position.x}
+                x1={stemStartX}
+                y1={stemStartY}
+                x2={stemEndX}
                 y2={stemEndY}
-                stroke="rgba(91, 132, 75, 0.42)"
-                strokeWidth="0.55"
+                stroke="rgba(91, 132, 75, 0.36)"
+                strokeWidth="0.45"
                 strokeLinecap="round"
               />
             );
