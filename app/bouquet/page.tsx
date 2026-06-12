@@ -53,6 +53,13 @@ type BackgroundWorrySeed = {
   comments: BackgroundWorryComment[];
 };
 
+type LaunchDrag = {
+  seedId: string;
+  pointerId: number;
+  start: { x: number; y: number };
+  current: { x: number; y: number };
+};
+
 const ADMIN_ID = "comany67";
 
 const FLOWER_COLORS = [
@@ -155,8 +162,13 @@ const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
 );
 
 const EDGE_MARGIN = 8;
-const MIN_FLOWER_DISTANCE = 11;
-const REPULSION_ITERATIONS = 8;
+const MIN_FLOWER_DISTANCE = 7;
+const REPULSION_ITERATIONS = 3;
+const LAUNCH_POWER = 0.22;
+const LAUNCH_FRICTION = 0.94;
+const LAUNCH_BOUNCE = 0.35;
+const LAUNCH_STOP_SPEED = 0.08;
+const MAX_PULL_DISTANCE = 20;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max);
@@ -193,6 +205,8 @@ export default function BouquetPage() {
   const draggingSeedIdRef = useRef<string | null>(null);
   const dragPositionRef = useRef<{ x: number; y: number } | null>(null);
   const dragStartedRef = useRef(false);
+  const launchDragRef = useRef<LaunchDrag | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
   const [seeds, setSeeds] = useState<BouquetSeed[]>([]);
@@ -210,6 +224,7 @@ export default function BouquetPage() {
   const [savingSeed, setSavingSeed] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
   const [isMoveMode, setIsMoveMode] = useState(false);
+  const [launchDrag, setLaunchDrag] = useState<LaunchDrag | null>(null);
 
   const isAdmin = loggedInUserId === ADMIN_ID;
 
@@ -780,7 +795,7 @@ export default function BouquetPage() {
   }, []);
 
   const handleSlotClick = (slotNumber: number) => {
-    if (isMoveMode || dragStartedRef.current) return;
+    if (isMoveMode || dragStartedRef.current || launchDragRef.current) return;
 
     const seed = seeds.find((item) => item.slot_number === slotNumber);
     if (!seed) return;
@@ -861,61 +876,28 @@ export default function BouquetPage() {
     );
   };
 
-  const handleMoveStart = (
-    e: React.PointerEvent<HTMLDivElement>,
-    seed: BouquetSeed,
+  const getLimitedPullPosition = (
+    start: { x: number; y: number },
+    current: { x: number; y: number },
   ) => {
-    if (!isMoveMode) return;
-    if (!canMoveSeed(seed)) return;
+    const dx = current.x - start.x;
+    const dy = current.y - start.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
 
-    e.preventDefault();
-    e.stopPropagation();
+    if (distance <= MAX_PULL_DISTANCE) return current;
 
-    draggingSeedIdRef.current = seed.id;
-    dragStartedRef.current = true;
-
-    e.currentTarget.setPointerCapture(e.pointerId);
-
-    const nextPosition = getPositionFromPointer(e.clientX, e.clientY);
-    if (!nextPosition) return;
-
-    dragPositionRef.current = nextPosition;
-
-    const nextPositions = resolveFlowerPositions(seed.id, nextPosition);
-    updateSeedPositionsLocal(nextPositions);
+    const ratio = MAX_PULL_DISTANCE / distance;
+    return {
+      x: start.x + dx * ratio,
+      y: start.y + dy * ratio,
+    };
   };
 
-  const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const seedId = draggingSeedIdRef.current;
-    if (!seedId) return;
-
-    e.preventDefault();
-
-    const nextPosition = getPositionFromPointer(e.clientX, e.clientY);
-    if (!nextPosition) return;
-
-    dragPositionRef.current = nextPosition;
-
-    const nextPositions = resolveFlowerPositions(seedId, nextPosition);
-    updateSeedPositionsLocal(nextPositions);
-  };
-
-  const handleMoveEnd = async (e: React.PointerEvent<HTMLDivElement>) => {
-    const seedId = draggingSeedIdRef.current;
-    const finalPosition = dragPositionRef.current;
-
-    if (!seedId || !finalPosition) return;
-
-    e.preventDefault();
-
-    draggingSeedIdRef.current = null;
-    dragPositionRef.current = null;
-
-    const finalPositions = resolveFlowerPositions(seedId, finalPosition);
-    updateSeedPositionsLocal(finalPositions);
-
+  const saveSeedPositions = async (
+    positions: { id: string; x: number; y: number }[],
+  ) => {
     const results = await Promise.all(
-      finalPositions.map((pos) =>
+      positions.map((pos) =>
         supabase
           .from("bouquet_seeds")
           .update({
@@ -931,12 +913,194 @@ export default function BouquetPage() {
     if (failed?.error) {
       setMessage(failed.error.message);
       loadSeeds();
+    }
+  };
+
+  const animateLaunch = (
+    seedId: string,
+    startPosition: { x: number; y: number },
+    velocity: { x: number; y: number },
+  ) => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    let position = { ...startPosition };
+    let speed = { ...velocity };
+    let latestPositions = resolveFlowerPositions(seedId, position);
+
+    const step = () => {
+      position = {
+        x: position.x + speed.x,
+        y: position.y + speed.y,
+      };
+
+      if (position.x <= EDGE_MARGIN || position.x >= 100 - EDGE_MARGIN) {
+        speed.x *= -LAUNCH_BOUNCE;
+        position.x = clamp(position.x, EDGE_MARGIN, 100 - EDGE_MARGIN);
+      }
+
+      if (position.y <= EDGE_MARGIN || position.y >= 100 - EDGE_MARGIN) {
+        speed.y *= -LAUNCH_BOUNCE;
+        position.y = clamp(position.y, EDGE_MARGIN, 100 - EDGE_MARGIN);
+      }
+
+      speed.x *= LAUNCH_FRICTION;
+      speed.y *= LAUNCH_FRICTION;
+
+      latestPositions = resolveFlowerPositions(seedId, position);
+      updateSeedPositionsLocal(latestPositions);
+
+      const currentSpeed = Math.sqrt(speed.x * speed.x + speed.y * speed.y);
+
+      if (currentSpeed > LAUNCH_STOP_SPEED) {
+        animationFrameRef.current = requestAnimationFrame(step);
+        return;
+      }
+
+      animationFrameRef.current = null;
+      saveSeedPositions(latestPositions);
+
+      setTimeout(() => {
+        dragStartedRef.current = false;
+      }, 100);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(step);
+  };
+
+  const handleMoveStart = (
+    e: React.PointerEvent<HTMLDivElement>,
+    seed: BouquetSeed,
+  ) => {
+    if (!isMoveMode) return;
+    if (!canMoveSeed(seed)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    const startPosition = getSeedPosition(seed);
+
+    draggingSeedIdRef.current = seed.id;
+    dragStartedRef.current = true;
+    dragPositionRef.current = startPosition;
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const nextDrag = {
+      seedId: seed.id,
+      pointerId: e.pointerId,
+      start: startPosition,
+      current: startPosition,
+    };
+
+    launchDragRef.current = nextDrag;
+    setLaunchDrag(nextDrag);
+  };
+
+  const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const currentDrag = launchDragRef.current;
+    if (!currentDrag || currentDrag.pointerId !== e.pointerId) return;
+
+    e.preventDefault();
+
+    const pointerPosition = getPositionFromPointer(e.clientX, e.clientY);
+    if (!pointerPosition) return;
+
+    const pullPosition = getLimitedPullPosition(
+      currentDrag.start,
+      pointerPosition,
+    );
+
+    const nextDrag = { ...currentDrag, current: pullPosition };
+
+    launchDragRef.current = nextDrag;
+    dragPositionRef.current = pullPosition;
+    setLaunchDrag(nextDrag);
+
+    updateSeedPositionsLocal(resolveFlowerPositions(currentDrag.seedId, pullPosition));
+  };
+
+  const handleMoveEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    const currentDrag = launchDragRef.current;
+    if (!currentDrag || currentDrag.pointerId !== e.pointerId) return;
+
+    e.preventDefault();
+
+    const pullPosition = currentDrag.current;
+    const velocity = {
+      x: (currentDrag.start.x - pullPosition.x) * LAUNCH_POWER,
+      y: (currentDrag.start.y - pullPosition.y) * LAUNCH_POWER,
+    };
+
+    draggingSeedIdRef.current = null;
+    dragPositionRef.current = null;
+    launchDragRef.current = null;
+    setLaunchDrag(null);
+
+    const pullDistance = Math.sqrt(
+      (currentDrag.start.x - pullPosition.x) ** 2 +
+        (currentDrag.start.y - pullPosition.y) ** 2,
+    );
+
+    if (pullDistance < 1) {
+      saveSeedPositions(resolveFlowerPositions(currentDrag.seedId, pullPosition));
+      setTimeout(() => {
+        dragStartedRef.current = false;
+      }, 100);
       return;
     }
 
-    setTimeout(() => {
-      dragStartedRef.current = false;
-    }, 100);
+    animateLaunch(currentDrag.seedId, pullPosition, velocity);
+  };
+
+  const renderLaunchArrow = () => {
+    if (!launchDrag) return null;
+
+    const dx = launchDrag.start.x - launchDrag.current.x;
+    const dy = launchDrag.start.y - launchDrag.current.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < 1) return null;
+
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    const arrowLength = clamp(distance * 1.8, 8, 28);
+
+    return (
+      <div
+        style={{
+          position: "absolute",
+          left: `${launchDrag.current.x}%`,
+          top: `${launchDrag.current.y}%`,
+          width: `${arrowLength}%`,
+          height: "0px",
+          transform: `rotate(${angle}deg)`,
+          transformOrigin: "0 50%",
+          borderTop: "4px solid rgba(122, 93, 70, 0.78)",
+          filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.16))",
+          pointerEvents: "none",
+          zIndex: 900,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            right: "-2px",
+            top: "-9px",
+            width: 0,
+            height: 0,
+            borderTop: "7px solid transparent",
+            borderBottom: "7px solid transparent",
+            borderLeft: "12px solid rgba(122, 93, 70, 0.78)",
+          }}
+        />
+      </div>
+    );
   };
 
   const handleSaveSeedSettings = async () => {
@@ -1174,7 +1338,7 @@ export default function BouquetPage() {
           }}
         >
           {isMoveMode
-            ? "配置変更中：花を動かせます"
+            ? "発射モード中：花を引っぱれます"
             : "自分の花の位置を変更する"}
         </button>
 
@@ -1188,7 +1352,7 @@ export default function BouquetPage() {
               textAlign: "center",
             }}
           >
-            自分の花を押したまま動かしてください。近くの花は少しよけます。
+            自分の花を後ろに引っぱって離してください。矢印の方向に飛びます。花同士は少し重なります。
           </p>
         )}
       </div>
@@ -1216,15 +1380,51 @@ export default function BouquetPage() {
           width: "100%",
           maxWidth: "420px",
           height: "640px",
-          borderRadius: "28px",
-          border: "1px solid rgba(216,203,189,0.7)",
-          backgroundColor: "rgba(255,250,245,0.62)",
+          borderRadius: "34px",
+          border: "10px solid #e8b7c2",
+          outline: "2px dashed rgba(122, 93, 70, 0.28)",
+          outlineOffset: "-16px",
+          backgroundColor: "rgba(255,250,245,0.72)",
+          boxShadow:
+            "0 10px 24px rgba(89, 64, 48, 0.12), inset 0 0 0 3px rgba(255,255,255,0.72)",
           position: "relative",
           zIndex: 20,
           overflow: "visible",
           touchAction: isMoveMode ? "none" : "auto",
         }}
       >
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "-23px",
+            width: "92px",
+            height: "36px",
+            transform: "translateX(-50%)",
+            borderRadius: "999px 999px 12px 12px",
+            background:
+              "linear-gradient(135deg, #f8d7df 0%, #e8b7c2 50%, #f8d7df 100%)",
+            boxShadow: "0 4px 10px rgba(89, 64, 48, 0.14)",
+            pointerEvents: "none",
+            zIndex: 50,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "-21px",
+            width: "72px",
+            height: "26px",
+            transform: "translateX(-50%)",
+            clipPath: "polygon(0 0, 100% 0, 86% 100%, 50% 58%, 14% 100%)",
+            backgroundColor: "#d79aaa",
+            boxShadow: "0 4px 10px rgba(89, 64, 48, 0.14)",
+            pointerEvents: "none",
+            zIndex: 50,
+          }}
+        />
+        {renderLaunchArrow()}
         {seeds.map((seed) => {
           const position = getSeedPosition(seed);
           const movable = canMoveSeed(seed);
