@@ -231,7 +231,7 @@ export default function BouquetPage() {
     const commentCount = seed.comments.length;
     const displayName = getDisplayName(seed);
 
-    const growthRatio = 1;
+    const growthRatio = 0;
 
     // 댓글 0~4개까지는 씨앗/새싹 단계, 5개부터 꽃이 피는 단계입니다.
     const seedStage = Math.min(commentCount, 4);
