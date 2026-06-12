@@ -1395,9 +1395,9 @@ export default function BouquetPage() {
           maxWidth: "420px",
           aspectRatio: "1 / 1",
           marginBottom: "132px",
-          borderRadius: "50%",
-          border: "10px solid #e8b7c2",
-          outline: "2px dashed rgba(122, 93, 70, 0.32)",
+          borderRadius: "0",
+          border: "none",
+          outline: "none",
           outlineOffset: "-18px",
           background:
             "radial-gradient(circle at 50% 34%, rgba(255,255,255,0.98) 0%, rgba(255,250,245,0.9) 45%, rgba(255,238,230,0.86) 100%)",
