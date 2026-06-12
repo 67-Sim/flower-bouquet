@@ -1254,31 +1254,6 @@ export default function BouquetPage() {
     >
       <div
         style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 0,
-          pointerEvents: "none",
-          overflow: "hidden",
-          opacity: 0.42,
-        }}
-      >
-        {backgroundWorrySeeds.map((seed) => (
-          <div
-            key={seed.id}
-            style={{
-              position: "absolute",
-              left: `${seed.x}px`,
-              top: `${seed.y}px`,
-              transform: "translate(-50%, -50%) scale(0.78)",
-              transformOrigin: "center center",
-            }}
-          >
-            {renderBackgroundWorrySeed(seed)}
-          </div>
-        ))}
-      </div>
-      <div
-        style={{
           width: "100%",
           maxWidth: "420px",
           display: "flex",
@@ -1407,16 +1382,16 @@ export default function BouquetPage() {
           touchAction: isMoveMode ? "pan-y" : "auto",
         }}
       >
-        {/* 꽃 줄기: 원 안의 꽃에서 원 바깥 리본 매듭까지 내려옵니다 */}
+        {/* 꽃 줄기: 꽃 아래에서 리본 매듭까지 자연스럽게 이어집니다 */}
         <svg
-          viewBox="0 0 100 124"
+          viewBox="0 0 100 132"
           preserveAspectRatio="none"
           style={{
             position: "absolute",
             left: 0,
             top: 0,
             width: "100%",
-            height: "124%",
+            height: "132%",
             pointerEvents: "none",
             zIndex: 4,
             overflow: "visible",
@@ -1425,21 +1400,22 @@ export default function BouquetPage() {
           {seeds.map((seed) => {
             const position = getSeedPosition(seed);
             const tieX = 50 + (position.x - 50) * 0.08;
-            const tieY = 105 + getStableRandom(seed.id) * 3;
+            const startY = position.y + 8;
+            const tieY = 108 + getStableRandom(seed.id) * 4;
             const controlX = 50 + (position.x - 50) * 0.28;
-            const controlY = 78 + getStableRandom(`${seed.id}-stem`) * 9;
+            const controlY = 82 + getStableRandom(`${seed.id}-stem`) * 9;
 
             return (
               <g key={`stem-${seed.id}`}>
                 <path
-                  d={`M ${position.x} ${position.y + 3} Q ${controlX} ${controlY} ${tieX} ${tieY}`}
+                  d={`M ${position.x} ${startY} Q ${controlX} ${controlY} ${tieX} ${tieY}`}
                   fill="none"
                   stroke="rgba(77, 124, 68, 0.56)"
                   strokeWidth="0.78"
                   strokeLinecap="round"
                 />
                 <path
-                  d={`M ${position.x + 0.4} ${position.y + 3} Q ${controlX + 0.3} ${controlY} ${tieX + 0.2} ${tieY}`}
+                  d={`M ${position.x + 0.4} ${startY} Q ${controlX + 0.3} ${controlY} ${tieX + 0.2} ${tieY}`}
                   fill="none"
                   stroke="rgba(255, 255, 255, 0.24)"
                   strokeWidth="0.24"
@@ -1458,7 +1434,7 @@ export default function BouquetPage() {
             top: "100%",
             width: "64px",
             height: "86px",
-            transform: "translate(-50%, -5px)",
+            transform: "translate(-50%, 0px)",
             pointerEvents: "none",
             zIndex: 5,
           }}
