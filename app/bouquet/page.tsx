@@ -197,6 +197,37 @@ function formatDateTime(value: string) {
   });
 }
 
+const getStableRandom = (key: string) => {
+  let hash = 0;
+
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+
+  return (Math.sin(hash) + 1) / 2;
+};
+
+const getStemLeaves = (seed: BouquetSeed) => {
+  const baseKey = `${seed.id}-${seed.slot_number}`;
+  const leafCount = 1 + Math.floor(getStableRandom(`${baseKey}-count`) * 3);
+
+  return Array.from({ length: leafCount }).map((_, index) => {
+    const side = getStableRandom(`${baseKey}-side-${index}`) > 0.5 ? 1 : -1;
+
+    return {
+      ratio:
+        0.24 +
+        index * 0.18 +
+        getStableRandom(`${baseKey}-ratio-${index}`) * 0.12,
+      side,
+      length: 2.4 + getStableRandom(`${baseKey}-length-${index}`) * 2.2,
+      width: 0.75 + getStableRandom(`${baseKey}-width-${index}`) * 0.75,
+      rotateOffset: 26 + getStableRandom(`${baseKey}-rotate-${index}`) * 22,
+      opacity: 0.34 + getStableRandom(`${baseKey}-opacity-${index}`) * 0.22,
+    };
+  });
+};
+
 export default function BouquetPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -1023,7 +1054,9 @@ export default function BouquetPage() {
     dragPositionRef.current = pullPosition;
     setLaunchDrag(nextDrag);
 
-    updateSeedPositionsLocal(resolveFlowerPositions(currentDrag.seedId, pullPosition));
+    updateSeedPositionsLocal(
+      resolveFlowerPositions(currentDrag.seedId, pullPosition),
+    );
   };
 
   const handleMoveEnd = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1049,7 +1082,9 @@ export default function BouquetPage() {
     );
 
     if (pullDistance < 1) {
-      saveSeedPositions(resolveFlowerPositions(currentDrag.seedId, pullPosition));
+      saveSeedPositions(
+        resolveFlowerPositions(currentDrag.seedId, pullPosition),
+      );
       setTimeout(() => {
         dragStartedRef.current = false;
       }, 100);
@@ -1463,18 +1498,79 @@ export default function BouquetPage() {
             const stemStartY = 92;
             const stemEndX = position.x;
             const stemEndY = position.y;
+            const stemAngle =
+              (Math.atan2(stemEndY - stemStartY, stemEndX - stemStartX) * 180) /
+              Math.PI;
+            const stemLeaves = getStemLeaves(seed);
 
             return (
-              <line
-                key={`stem-${seed.id}`}
-                x1={stemStartX}
-                y1={stemStartY}
-                x2={stemEndX}
-                y2={stemEndY}
-                stroke="rgba(91, 132, 75, 0.36)"
-                strokeWidth="0.45"
-                strokeLinecap="round"
-              />
+              <g key={`stem-${seed.id}`}>
+                <line
+                  x1={stemStartX}
+                  y1={stemStartY}
+                  x2={stemEndX}
+                  y2={stemEndY}
+                  stroke="rgba(77, 124, 68, 0.48)"
+                  strokeWidth="0.72"
+                  strokeLinecap="round"
+                />
+                <line
+                  x1={stemStartX}
+                  y1={stemStartY}
+                  x2={stemEndX}
+                  y2={stemEndY}
+                  stroke="rgba(255, 255, 255, 0.22)"
+                  strokeWidth="0.22"
+                  strokeLinecap="round"
+                />
+
+                {stemLeaves.map((leaf, index) => {
+                  const leafX =
+                    stemStartX + (stemEndX - stemStartX) * leaf.ratio;
+                  const leafY =
+                    stemStartY + (stemEndY - stemStartY) * leaf.ratio;
+                  const leafAngle = stemAngle + leaf.side * leaf.rotateOffset;
+                  const leafCenterX =
+                    leafX +
+                    Math.cos((leafAngle * Math.PI) / 180) * leaf.length * 0.42;
+                  const leafCenterY =
+                    leafY +
+                    Math.sin((leafAngle * Math.PI) / 180) * leaf.length * 0.42;
+
+                  return (
+                    <g key={`stem-leaf-${seed.id}-${index}`}>
+                      <ellipse
+                        cx={leafCenterX}
+                        cy={leafCenterY}
+                        rx={leaf.length}
+                        ry={leaf.width}
+                        fill="rgba(105, 154, 83, 0.5)"
+                        opacity={leaf.opacity}
+                        transform={`rotate(${leafAngle} ${leafCenterX} ${leafCenterY})`}
+                      />
+                      <line
+                        x1={leafX}
+                        y1={leafY}
+                        x2={
+                          leafCenterX +
+                          Math.cos((leafAngle * Math.PI) / 180) *
+                            leaf.length *
+                            0.52
+                        }
+                        y2={
+                          leafCenterY +
+                          Math.sin((leafAngle * Math.PI) / 180) *
+                            leaf.length *
+                            0.52
+                        }
+                        stroke="rgba(70, 118, 60, 0.24)"
+                        strokeWidth="0.12"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  );
+                })}
+              </g>
             );
           })}
         </svg>
@@ -1526,10 +1622,10 @@ export default function BouquetPage() {
               width: "34px",
               height: "28px",
               borderRadius: "999px",
-              background:
-                "linear-gradient(135deg, #f08aa4 0%, #d85a80 100%)",
+              background: "linear-gradient(135deg, #f08aa4 0%, #d85a80 100%)",
               transform: "translate(-50%, -50%)",
-              boxShadow: "inset 0 2px 4px rgba(255,255,255,0.35), 0 4px 8px rgba(89,64,48,0.16)",
+              boxShadow:
+                "inset 0 2px 4px rgba(255,255,255,0.35), 0 4px 8px rgba(89,64,48,0.16)",
             }}
           />
           <div
