@@ -251,7 +251,7 @@ export default function BouquetPage() {
     const petalHeight = basePetalHeight * shapeConfig.heightScale;
     const petalDistance = 12 + growthRatio * 30;
     const centerSize = 22 + growthRatio * 16;
-    const petalCount = bloomCommentCount < 30 ? 6 : 10;
+    const petalCount = 6;
 
     if (commentCount < 5) {
       return (
