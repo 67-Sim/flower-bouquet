@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
@@ -32,6 +32,8 @@ type BouquetSeed = {
   title: string | null;
   flower_color: string | null;
   flower_shape: string | null;
+  x: number | null;
+  y: number | null;
   created_at: string;
   owner?: JoinedOwner;
   comments: SeedComment[];
@@ -152,6 +154,27 @@ const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
   (num) => num !== 5285,
 );
 
+const EDGE_MARGIN = 8;
+const MIN_FLOWER_DISTANCE = 11;
+const REPULSION_ITERATIONS = 8;
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(Math.max(value, min), max);
+};
+
+const getDefaultPosition = (slotNumber: number) => {
+  const index = Math.max(0, SLOT_NUMBERS.indexOf(slotNumber));
+  const columns = 5;
+  const rows = Math.ceil(SLOT_NUMBERS.length / columns);
+  const col = index % columns;
+  const row = Math.floor(index / columns);
+
+  return {
+    x: ((col + 0.5) / columns) * 100,
+    y: ((row + 0.5) / rows) * 100,
+  };
+};
+
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("ja-JP", {
     year: "numeric",
@@ -165,6 +188,11 @@ function formatDateTime(value: string) {
 export default function BouquetPage() {
   const supabase = createClient();
   const router = useRouter();
+
+  const gardenRef = useRef<HTMLDivElement | null>(null);
+  const draggingSeedIdRef = useRef<string | null>(null);
+  const dragPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const dragStartedRef = useRef(false);
 
   const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
   const [seeds, setSeeds] = useState<BouquetSeed[]>([]);
@@ -181,6 +209,7 @@ export default function BouquetPage() {
   const [message, setMessage] = useState("");
   const [savingSeed, setSavingSeed] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
+  const [isMoveMode, setIsMoveMode] = useState(false);
 
   const isAdmin = loggedInUserId === ADMIN_ID;
 
@@ -211,6 +240,21 @@ export default function BouquetPage() {
 
   const getDisplayName = (seed: BouquetSeed) => {
     return getOwnerName(seed.owner ?? null)?.trim() || seed.owner_id;
+  };
+
+  const getSeedPosition = (seed: BouquetSeed) => {
+    const fallback = getDefaultPosition(seed.slot_number);
+
+    return {
+      x: typeof seed.x === "number" ? seed.x : fallback.x,
+      y: typeof seed.y === "number" ? seed.y : fallback.y,
+    };
+  };
+
+  const canMoveSeed = (seed: BouquetSeed) => {
+    return Boolean(
+      loggedInUserId && (seed.owner_id === loggedInUserId || isAdmin),
+    );
   };
 
   const getCommentAuthorLabel = (comment: SeedComment) => {
@@ -656,7 +700,7 @@ export default function BouquetPage() {
     const { data: seedRows, error: seedError } = await supabase
       .from("bouquet_seeds")
       .select(
-        "id, owner_id, slot_number, title, flower_color, flower_shape, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)",
+        "id, owner_id, slot_number, title, flower_color, flower_shape, x, y, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)",
       )
       .order("slot_number", { ascending: true });
 
@@ -736,6 +780,8 @@ export default function BouquetPage() {
   }, []);
 
   const handleSlotClick = (slotNumber: number) => {
+    if (isMoveMode || dragStartedRef.current) return;
+
     const seed = seeds.find((item) => item.slot_number === slotNumber);
     if (!seed) return;
 
@@ -745,6 +791,152 @@ export default function BouquetPage() {
     setEditTitle(seed.title || "");
     setEditColor(seed.flower_color || FLOWER_COLORS[0]);
     setEditShape(seed.flower_shape || DEFAULT_FLOWER_SHAPE);
+  };
+
+  const getPositionFromPointer = (clientX: number, clientY: number) => {
+    const garden = gardenRef.current;
+    if (!garden) return null;
+
+    const rect = garden.getBoundingClientRect();
+
+    return {
+      x: clamp(
+        ((clientX - rect.left) / rect.width) * 100,
+        EDGE_MARGIN,
+        100 - EDGE_MARGIN,
+      ),
+      y: clamp(
+        ((clientY - rect.top) / rect.height) * 100,
+        EDGE_MARGIN,
+        100 - EDGE_MARGIN,
+      ),
+    };
+  };
+
+  const resolveFlowerPositions = (
+    movingSeedId: string,
+    movingPosition: { x: number; y: number },
+  ) => {
+    const positions = seeds.map((seed) => ({
+      id: seed.id,
+      x: seed.id === movingSeedId ? movingPosition.x : getSeedPosition(seed).x,
+      y: seed.id === movingSeedId ? movingPosition.y : getSeedPosition(seed).y,
+    }));
+
+    for (let loop = 0; loop < REPULSION_ITERATIONS; loop++) {
+      for (let i = 0; i < positions.length; i++) {
+        for (let j = i + 1; j < positions.length; j++) {
+          const a = positions[i];
+          const b = positions[j];
+
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const distance = Math.sqrt(dx * dx + dy * dy) || 0.001;
+
+          if (distance < MIN_FLOWER_DISTANCE) {
+            const push = (MIN_FLOWER_DISTANCE - distance) / 2;
+            const nx = dx / distance;
+            const ny = dy / distance;
+
+            a.x = clamp(a.x - nx * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
+            a.y = clamp(a.y - ny * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
+            b.x = clamp(b.x + nx * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
+            b.y = clamp(b.y + ny * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
+          }
+        }
+      }
+    }
+
+    return positions;
+  };
+
+  const updateSeedPositionsLocal = (
+    positions: { id: string; x: number; y: number }[],
+  ) => {
+    setSeeds((prev) =>
+      prev.map((seed) => {
+        const found = positions.find((pos) => pos.id === seed.id);
+        return found ? { ...seed, x: found.x, y: found.y } : seed;
+      }),
+    );
+  };
+
+  const handleMoveStart = (
+    e: React.PointerEvent<HTMLDivElement>,
+    seed: BouquetSeed,
+  ) => {
+    if (!isMoveMode) return;
+    if (!canMoveSeed(seed)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    draggingSeedIdRef.current = seed.id;
+    dragStartedRef.current = true;
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const nextPosition = getPositionFromPointer(e.clientX, e.clientY);
+    if (!nextPosition) return;
+
+    dragPositionRef.current = nextPosition;
+
+    const nextPositions = resolveFlowerPositions(seed.id, nextPosition);
+    updateSeedPositionsLocal(nextPositions);
+  };
+
+  const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const seedId = draggingSeedIdRef.current;
+    if (!seedId) return;
+
+    e.preventDefault();
+
+    const nextPosition = getPositionFromPointer(e.clientX, e.clientY);
+    if (!nextPosition) return;
+
+    dragPositionRef.current = nextPosition;
+
+    const nextPositions = resolveFlowerPositions(seedId, nextPosition);
+    updateSeedPositionsLocal(nextPositions);
+  };
+
+  const handleMoveEnd = async (e: React.PointerEvent<HTMLDivElement>) => {
+    const seedId = draggingSeedIdRef.current;
+    const finalPosition = dragPositionRef.current;
+
+    if (!seedId || !finalPosition) return;
+
+    e.preventDefault();
+
+    draggingSeedIdRef.current = null;
+    dragPositionRef.current = null;
+
+    const finalPositions = resolveFlowerPositions(seedId, finalPosition);
+    updateSeedPositionsLocal(finalPositions);
+
+    const results = await Promise.all(
+      finalPositions.map((pos) =>
+        supabase
+          .from("bouquet_seeds")
+          .update({
+            x: pos.x,
+            y: pos.y,
+          })
+          .eq("id", pos.id),
+      ),
+    );
+
+    const failed = results.find((result) => result.error);
+
+    if (failed?.error) {
+      setMessage(failed.error.message);
+      loadSeeds();
+      return;
+    }
+
+    setTimeout(() => {
+      dragStartedRef.current = false;
+    }, 100);
   };
 
   const handleSaveSeedSettings = async () => {
@@ -959,6 +1151,48 @@ export default function BouquetPage() {
         </button>
       </div>
 
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "420px",
+          marginBottom: "12px",
+          position: "relative",
+          zIndex: 20,
+        }}
+      >
+        <button
+          onClick={() => setIsMoveMode((prev) => !prev)}
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            borderRadius: "12px",
+            border: isMoveMode ? "2px solid #7a6b5d" : "1px solid #d8cbbd",
+            backgroundColor: isMoveMode ? "#fff1c7" : "#fff",
+            color: "#2f2a25",
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          {isMoveMode
+            ? "配置変更中：花を動かせます"
+            : "自分の花の位置を変更する"}
+        </button>
+
+        {isMoveMode && (
+          <p
+            style={{
+              margin: "8px 0 0",
+              fontSize: "12px",
+              color: "#7a6b5d",
+              lineHeight: 1.5,
+              textAlign: "center",
+            }}
+          >
+            自分の花を押したまま動かしてください。近くの花は少しよけます。
+          </p>
+        )}
+      </div>
+
       {message && (
         <p
           style={{
@@ -977,60 +1211,50 @@ export default function BouquetPage() {
       )}
 
       <div
+        ref={gardenRef}
         style={{
           width: "100%",
           maxWidth: "420px",
-          display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-          gap: "10px",
-          overflow: "visible",
+          height: "640px",
+          borderRadius: "28px",
+          border: "1px solid rgba(216,203,189,0.7)",
+          backgroundColor: "rgba(255,250,245,0.62)",
           position: "relative",
           zIndex: 20,
+          overflow: "visible",
+          touchAction: isMoveMode ? "none" : "auto",
         }}
       >
-        {SLOT_NUMBERS.map((slotNumber) => {
-          const seed = seeds.find((item) => item.slot_number === slotNumber);
-          const commentCount = seed?.comments.length ?? 0;
+        {seeds.map((seed) => {
+          const position = getSeedPosition(seed);
+          const movable = canMoveSeed(seed);
+          const commentCount = seed.comments.length;
 
           return (
-            <button
-              key={slotNumber}
-              onClick={() => handleSlotClick(slotNumber)}
+            <div
+              key={seed.id}
+              onClick={() => handleSlotClick(seed.slot_number)}
+              onPointerDown={(e) => handleMoveStart(e, seed)}
+              onPointerMove={handleMove}
+              onPointerUp={handleMoveEnd}
+              onPointerCancel={handleMoveEnd}
               style={{
-                width: "100%",
-                aspectRatio: "1 / 1",
-                borderRadius: "50%",
-                border: seed ? "1px solid transparent" : "1px solid #eadfd3",
-                backgroundColor: seed ? "transparent" : "#fffaf5",
-                cursor: "pointer",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: "4px",
-                gap: "2px",
-                position: "relative",
-                overflow: "visible",
-                zIndex: 200 - Math.min(commentCount, 100),
+                position: "absolute",
+                left: `${position.x}%`,
+                top: `${position.y}%`,
+                transform: "translate(-50%, -50%)",
+                cursor: isMoveMode && movable ? "grab" : "pointer",
+                opacity: isMoveMode && !movable ? 0.35 : 1,
+                zIndex:
+                  isMoveMode && movable
+                    ? 500
+                    : 200 - Math.min(commentCount, 100),
+                touchAction: isMoveMode ? "none" : "auto",
+                userSelect: "none",
               }}
             >
-              {seed ? renderFlower(seed) : null}
-
-              {!seed && (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    color: "#6b5b4d",
-                    lineHeight: 1.1,
-                    position: "relative",
-                    zIndex: 10,
-                    textAlign: "center",
-                  }}
-                >
-                  {slotNumber}
-                </span>
-              )}
-            </button>
+              {renderFlower(seed)}
+            </div>
           );
         })}
       </div>
