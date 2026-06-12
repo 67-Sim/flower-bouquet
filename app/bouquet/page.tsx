@@ -1384,13 +1384,16 @@ export default function BouquetPage() {
           border: "10px solid #e8b7c2",
           outline: "2px dashed rgba(122, 93, 70, 0.28)",
           outlineOffset: "-16px",
-          backgroundColor: "rgba(255,250,245,0.72)",
+          background:
+            "radial-gradient(circle at 50% 18%, rgba(255,255,255,0.92) 0%, rgba(255,250,245,0.78) 42%, rgba(255,238,230,0.76) 100%)",
           boxShadow:
-            "0 10px 24px rgba(89, 64, 48, 0.12), inset 0 0 0 3px rgba(255,255,255,0.72)",
+            "0 14px 30px rgba(89, 64, 48, 0.15), inset 0 0 0 3px rgba(255,255,255,0.78)",
           position: "relative",
           zIndex: 20,
           overflow: "visible",
-          touchAction: isMoveMode ? "none" : "auto",
+          // 위치 변경 모드에서도 빈 공간을 위아래로 드래그하면 페이지 스크롤이 됩니다.
+          // 실제 꽃을 잡았을 때만 각 꽃 요소에서 touchAction: none 으로 발사 조작을 막습니다.
+          touchAction: isMoveMode ? "pan-y" : "auto",
         }}
       >
         <div
@@ -1424,6 +1427,133 @@ export default function BouquetPage() {
             zIndex: 50,
           }}
         />
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "-4px",
+            width: "86%",
+            height: "210px",
+            transform: "translateX(-50%)",
+            clipPath: "polygon(9% 100%, 91% 100%, 73% 14%, 50% 0%, 27% 14%)",
+            background:
+              "linear-gradient(135deg, rgba(255,239,224,0.88), rgba(255,250,245,0.5) 48%, rgba(240,213,198,0.84))",
+            border: "1px solid rgba(172, 126, 95, 0.24)",
+            boxShadow: "0 -4px 18px rgba(89, 64, 48, 0.08)",
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        />
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            zIndex: 4,
+            overflow: "visible",
+          }}
+        >
+          {seeds.map((seed) => {
+            const position = getSeedPosition(seed);
+            const stemEndY = clamp(position.y + 5, 8, 90);
+
+            return (
+              <line
+                key={`stem-${seed.id}`}
+                x1="50"
+                y1="96"
+                x2={position.x}
+                y2={stemEndY}
+                stroke="rgba(91, 132, 75, 0.42)"
+                strokeWidth="0.55"
+                strokeLinecap="round"
+              />
+            );
+          })}
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "24px",
+            width: "104px",
+            height: "42px",
+            transform: "translateX(-50%) rotate(-2deg)",
+            pointerEvents: "none",
+            zIndex: 60,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: "42px",
+              height: "42px",
+              borderRadius: "50% 8px 50% 8px",
+              background:
+                "linear-gradient(135deg, #e56f8f 0%, #d95f83 58%, #bf4f72 100%)",
+              transform: "translate(-94%, -50%) rotate(-34deg)",
+              boxShadow: "0 5px 10px rgba(89, 64, 48, 0.18)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: "42px",
+              height: "42px",
+              borderRadius: "8px 50% 8px 50%",
+              background:
+                "linear-gradient(135deg, #e56f8f 0%, #d95f83 58%, #bf4f72 100%)",
+              transform: "translate(-6%, -50%) rotate(34deg)",
+              boxShadow: "0 5px 10px rgba(89, 64, 48, 0.18)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: "34px",
+              height: "28px",
+              borderRadius: "999px",
+              background:
+                "linear-gradient(135deg, #f08aa4 0%, #d85a80 100%)",
+              transform: "translate(-50%, -50%)",
+              boxShadow: "inset 0 2px 4px rgba(255,255,255,0.35), 0 4px 8px rgba(89,64,48,0.16)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              left: "28px",
+              top: "29px",
+              width: "28px",
+              height: "34px",
+              clipPath: "polygon(0 0, 100% 0, 82% 100%, 48% 70%, 12% 100%)",
+              backgroundColor: "#c94d73",
+              transform: "rotate(8deg)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              right: "28px",
+              top: "29px",
+              width: "28px",
+              height: "34px",
+              clipPath: "polygon(0 0, 100% 0, 88% 100%, 52% 70%, 18% 100%)",
+              backgroundColor: "#c94d73",
+              transform: "rotate(-8deg)",
+            }}
+          />
+        </div>
         {renderLaunchArrow()}
         {seeds.map((seed) => {
           const position = getSeedPosition(seed);
