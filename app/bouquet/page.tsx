@@ -207,27 +207,6 @@ const getStableRandom = (key: string) => {
   return (Math.sin(hash) + 1) / 2;
 };
 
-const getStemLeaves = (seed: BouquetSeed) => {
-  const baseKey = `${seed.id}-${seed.slot_number}`;
-  const leafCount = 1 + Math.floor(getStableRandom(`${baseKey}-count`) * 3);
-
-  return Array.from({ length: leafCount }).map((_, index) => {
-    const side = getStableRandom(`${baseKey}-side-${index}`) > 0.5 ? 1 : -1;
-
-    return {
-      ratio:
-        0.24 +
-        index * 0.18 +
-        getStableRandom(`${baseKey}-ratio-${index}`) * 0.12,
-      side,
-      length: 2.4 + getStableRandom(`${baseKey}-length-${index}`) * 2.2,
-      width: 0.75 + getStableRandom(`${baseKey}-width-${index}`) * 0.75,
-      rotateOffset: 26 + getStableRandom(`${baseKey}-rotate-${index}`) * 22,
-      opacity: 0.34 + getStableRandom(`${baseKey}-opacity-${index}`) * 0.22,
-    };
-  });
-};
-
 export default function BouquetPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -1479,6 +1458,70 @@ export default function BouquetPage() {
             zIndex: 2,
           }}
         />
+        {/* 花束の後ろに見える布・包装紙のレイヤー */}
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "74px",
+            width: "78%",
+            height: "380px",
+            transform: "translateX(-50%) rotate(-8deg)",
+            clipPath: "polygon(50% 0%, 96% 18%, 82% 100%, 14% 100%, 4% 18%)",
+            background:
+              "linear-gradient(145deg, rgba(255,255,255,0.72), rgba(255,232,214,0.44) 48%, rgba(233,193,176,0.64))",
+            border: "1px solid rgba(173, 125, 95, 0.2)",
+            boxShadow: "0 14px 26px rgba(89,64,48,0.08)",
+            pointerEvents: "none",
+            zIndex: 3,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: "35%",
+            bottom: "86px",
+            width: "44%",
+            height: "350px",
+            transform: "translateX(-50%) rotate(13deg)",
+            clipPath: "polygon(46% 0%, 100% 24%, 78% 100%, 0 92%, 12% 18%)",
+            background:
+              "linear-gradient(135deg, rgba(255,250,244,0.58), rgba(246,213,195,0.5) 55%, rgba(255,255,255,0.36))",
+            border: "1px solid rgba(173, 125, 95, 0.16)",
+            pointerEvents: "none",
+            zIndex: 3,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            right: "10%",
+            bottom: "92px",
+            width: "38%",
+            height: "330px",
+            transform: "rotate(-12deg)",
+            clipPath: "polygon(54% 0%, 92% 16%, 100% 92%, 18% 100%, 0 24%)",
+            background:
+              "linear-gradient(145deg, rgba(255,246,236,0.52), rgba(238,204,190,0.44) 55%, rgba(255,255,255,0.3))",
+            border: "1px solid rgba(173, 125, 95, 0.14)",
+            pointerEvents: "none",
+            zIndex: 3,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "94px",
+            width: "2px",
+            height: "320px",
+            transform: "translateX(-50%) rotate(2deg)",
+            background:
+              "linear-gradient(180deg, transparent, rgba(154,103,78,0.16), transparent)",
+            pointerEvents: "none",
+            zIndex: 4,
+          }}
+        />
         <svg
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -1498,11 +1541,6 @@ export default function BouquetPage() {
             const stemStartY = 92;
             const stemEndX = position.x;
             const stemEndY = position.y;
-            const stemAngle =
-              (Math.atan2(stemEndY - stemStartY, stemEndX - stemStartX) * 180) /
-              Math.PI;
-            const stemLeaves = getStemLeaves(seed);
-
             return (
               <g key={`stem-${seed.id}`}>
                 <line
@@ -1523,53 +1561,6 @@ export default function BouquetPage() {
                   strokeWidth="0.22"
                   strokeLinecap="round"
                 />
-
-                {stemLeaves.map((leaf, index) => {
-                  const leafX =
-                    stemStartX + (stemEndX - stemStartX) * leaf.ratio;
-                  const leafY =
-                    stemStartY + (stemEndY - stemStartY) * leaf.ratio;
-                  const leafAngle = stemAngle + leaf.side * leaf.rotateOffset;
-                  const leafCenterX =
-                    leafX +
-                    Math.cos((leafAngle * Math.PI) / 180) * leaf.length * 0.42;
-                  const leafCenterY =
-                    leafY +
-                    Math.sin((leafAngle * Math.PI) / 180) * leaf.length * 0.42;
-
-                  return (
-                    <g key={`stem-leaf-${seed.id}-${index}`}>
-                      <ellipse
-                        cx={leafCenterX}
-                        cy={leafCenterY}
-                        rx={leaf.length}
-                        ry={leaf.width}
-                        fill="rgba(105, 154, 83, 0.5)"
-                        opacity={leaf.opacity}
-                        transform={`rotate(${leafAngle} ${leafCenterX} ${leafCenterY})`}
-                      />
-                      <line
-                        x1={leafX}
-                        y1={leafY}
-                        x2={
-                          leafCenterX +
-                          Math.cos((leafAngle * Math.PI) / 180) *
-                            leaf.length *
-                            0.52
-                        }
-                        y2={
-                          leafCenterY +
-                          Math.sin((leafAngle * Math.PI) / 180) *
-                            leaf.length *
-                            0.52
-                        }
-                        stroke="rgba(70, 118, 60, 0.24)"
-                        strokeWidth="0.12"
-                        strokeLinecap="round"
-                      />
-                    </g>
-                  );
-                })}
               </g>
             );
           })}
