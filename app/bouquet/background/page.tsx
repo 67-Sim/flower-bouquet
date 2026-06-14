@@ -44,14 +44,28 @@ type WorrySeed = {
   comments: WorryComment[];
 };
 
+type BouquetSeed = {
+  id: string;
+  slot_number: number;
+  title: string | null;
+  flower_color: string | null;
+  x: number | null;
+  y: number | null;
+  commentCount: number;
+};
+
 export default function BackgroundPage() {
   const supabase = createClient();
   const router = useRouter();
 
   const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
   const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
+  const [bouquetSeeds, setBouquetSeeds] = useState<BouquetSeed[]>([]);
   const [worrySeeds, setWorrySeeds] = useState<WorrySeed[]>([]);
-  const [clickedPosition, setClickedPosition] = useState<{ x: number; y: number } | null>(null);
+  const [clickedPosition, setClickedPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [newTitle, setNewTitle] = useState("");
@@ -159,6 +173,35 @@ export default function BackgroundPage() {
       setUserNameMap(nameMap);
     }
 
+    const { data: bouquetRows, error: bouquetError } = await supabase
+      .from("bouquet_seeds")
+      .select("id, slot_number, title, flower_color, x, y")
+      .order("slot_number", { ascending: true });
+
+    if (!bouquetError && bouquetRows) {
+      const bouquetIds = bouquetRows.map((seed) => seed.id);
+
+      let bouquetCommentRows: { seed_id: string }[] = [];
+
+      if (bouquetIds.length > 0) {
+        const { data: commentData } = await supabase
+          .from("seed_comments")
+          .select("seed_id")
+          .in("seed_id", bouquetIds);
+
+        bouquetCommentRows = (commentData ?? []) as { seed_id: string }[];
+      }
+
+      const mergedBouquetSeeds: BouquetSeed[] = bouquetRows.map((seed) => ({
+        ...(seed as Omit<BouquetSeed, "commentCount">),
+        commentCount: bouquetCommentRows.filter(
+          (comment) => comment.seed_id === seed.id,
+        ).length,
+      }));
+
+      setBouquetSeeds(mergedBouquetSeeds);
+    }
+
     const { data: seedRows, error: seedError } = await supabase
       .from("worry_seeds")
       .select("*")
@@ -185,7 +228,9 @@ export default function BackgroundPage() {
 
     const mergedSeeds: WorrySeed[] = (seedRows ?? []).map((seed) => ({
       ...seed,
-      comments: commentRows.filter((comment) => comment.worry_seed_id === seed.id),
+      comments: commentRows.filter(
+        (comment) => comment.worry_seed_id === seed.id,
+      ),
     }));
 
     setWorrySeeds(mergedSeeds);
@@ -223,7 +268,8 @@ export default function BackgroundPage() {
         content: newContent,
         is_anonymous: newAnonymous,
         visibility: newVisibility,
-        flower_color: FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)],
+        flower_color:
+          FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)],
       })
       .select()
       .single();
@@ -233,7 +279,10 @@ export default function BackgroundPage() {
       return;
     }
 
-    setWorrySeeds((prev) => [...prev, { ...(data as WorrySeed), comments: [] }]);
+    setWorrySeeds((prev) => [
+      ...prev,
+      { ...(data as WorrySeed), comments: [] },
+    ]);
 
     setShowCreateModal(false);
     setNewTitle("");
@@ -266,8 +315,8 @@ export default function BackgroundPage() {
       prev.map((seed) =>
         seed.id === openedSeed.id
           ? { ...seed, comments: [...seed.comments, data as WorryComment] }
-          : seed
-      )
+          : seed,
+      ),
     );
 
     setCommentText("");
@@ -315,8 +364,8 @@ export default function BackgroundPage() {
               is_anonymous: editAnonymous,
               visibility: editVisibility,
             }
-          : seed
-      )
+          : seed,
+      ),
     );
 
     setIsEditingSeed(false);
@@ -329,7 +378,10 @@ export default function BackgroundPage() {
     const ok = confirm("この悩みの新芽を削除しますか？");
     if (!ok) return;
 
-    const { error } = await supabase.from("worry_seeds").delete().eq("id", openedSeed.id);
+    const { error } = await supabase
+      .from("worry_seeds")
+      .delete()
+      .eq("id", openedSeed.id);
 
     if (error) {
       console.log(error.message);
@@ -344,7 +396,9 @@ export default function BackgroundPage() {
   const handleDeleteWorryComment = async (commentId: string) => {
     if (!openedSeed || !loggedInUserId) return;
 
-    const targetComment = openedSeed.comments.find((comment) => comment.id === commentId);
+    const targetComment = openedSeed.comments.find(
+      (comment) => comment.id === commentId,
+    );
     if (!targetComment) return;
 
     const canDelete =
@@ -357,7 +411,10 @@ export default function BackgroundPage() {
     const ok = confirm("このコメントを削除しますか？");
     if (!ok) return;
 
-    const { error } = await supabase.from("worry_comments").delete().eq("id", commentId);
+    const { error } = await supabase
+      .from("worry_comments")
+      .delete()
+      .eq("id", commentId);
 
     if (error) {
       console.log(error.message);
@@ -369,10 +426,201 @@ export default function BackgroundPage() {
         seed.id === openedSeed.id
           ? {
               ...seed,
-              comments: seed.comments.filter((comment) => comment.id !== commentId),
+              comments: seed.comments.filter(
+                (comment) => comment.id !== commentId,
+              ),
             }
-          : seed
-      )
+          : seed,
+      ),
+    );
+  };
+
+  const renderBouquetBackgroundSeed = (seed: BouquetSeed) => {
+    const commentCount = seed.commentCount;
+    const color = seed.flower_color || "#f8b4d9";
+    const title = seed.title?.trim() || "";
+
+    const seedStage = Math.min(commentCount, 4);
+    const stemHeightByStage = [20, 28, 38, 48, 58];
+    const stemHeight = stemHeightByStage[seedStage];
+
+    const bloomCommentCount = Math.max(commentCount - 5, 0);
+    const growthRatio = Math.min(bloomCommentCount, 80) / 80;
+
+    const flowerSize = 42 + growthRatio * 64;
+    const petalWidth = 14 + growthRatio * 18;
+    const petalHeight = 22 + growthRatio * 32;
+    const petalDistance = 12 + growthRatio * 24;
+    const centerSize = 24 + growthRatio * 12;
+
+    if (commentCount < 5) {
+      return (
+        <div
+          style={{
+            width: "64px",
+            height: "84px",
+            position: "relative",
+            overflow: "visible",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: "8px",
+              width: commentCount === 0 ? "2px" : "3px",
+              height: `${stemHeight}px`,
+              backgroundColor: "#7aa36f",
+              borderRadius: "999px",
+              transform: "translateX(-50%)",
+              zIndex: 1,
+            }}
+          />
+
+          {commentCount >= 3 && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: `${stemHeight * 0.42 + 8}px`,
+                width: "18px",
+                height: "11px",
+                borderRadius: "100% 0 100% 0",
+                backgroundColor: "#8fbc7a",
+                transform: "translateX(-95%) rotate(-28deg)",
+                transformOrigin: "right center",
+                zIndex: 2,
+              }}
+            />
+          )}
+
+          {commentCount >= 4 && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: `${stemHeight * 0.62 + 8}px`,
+                width: "19px",
+                height: "11px",
+                borderRadius: "0 100% 0 100%",
+                backgroundColor: "#79aa68",
+                transform: "translateX(-5%) rotate(28deg)",
+                transformOrigin: "left center",
+                zIndex: 2,
+              }}
+            />
+          )}
+
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: `${stemHeight + 2}px`,
+              width: "30px",
+              height: "30px",
+              borderRadius: "50%",
+              backgroundColor: "#ffe8a3",
+              transform: "translateX(-50%)",
+              zIndex: 10,
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              textAlign: "center",
+              padding: "3px",
+              boxSizing: "border-box",
+              color: "#4b3b2f",
+              WebkitTextFillColor: "#4b3b2f",
+              fontSize: "7px",
+              fontWeight: 700,
+              lineHeight: 1.05,
+              overflow: "hidden",
+            }}
+          >
+            {title}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          position: "relative",
+          width: `${flowerSize}px`,
+          height: `${flowerSize}px`,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          overflow: "visible",
+        }}
+      >
+        {Array.from({ length: 8 }).map((_, i) => {
+          const angle = (360 / 8) * i;
+
+          return (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                width: 0,
+                height: 0,
+                transform: `rotate(${angle}deg)`,
+                transformOrigin: "center center",
+                zIndex: 1,
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: `${petalWidth}px`,
+                  height: `${petalHeight}px`,
+                  borderRadius: "75% 75% 52% 52%",
+                  backgroundColor: color,
+                  transform: `translate(-50%, calc(-50% - ${petalDistance}px))`,
+                  opacity: 0.96,
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
+                }}
+              />
+            </div>
+          );
+        })}
+
+        <div
+          style={{
+            width: `${centerSize}px`,
+            height: `${centerSize}px`,
+            borderRadius: "50%",
+            backgroundColor: "#ffe8a3",
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 999,
+            border: "1px solid rgba(0,0,0,0.08)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.14)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "3px",
+            boxSizing: "border-box",
+            textAlign: "center",
+            overflow: "hidden",
+            color: "#4b3b2f",
+            WebkitTextFillColor: "#4b3b2f",
+            fontSize: `${Math.max(7, centerSize * 0.22)}px`,
+            fontWeight: 700,
+            lineHeight: 1.05,
+          }}
+        >
+          {title}
+        </div>
+      </div>
     );
   };
 
@@ -397,7 +645,12 @@ export default function BackgroundPage() {
       return (
         <div
           data-seed="true"
-          style={{ width: "70px", height: "90px", position: "relative", overflow: "visible" }}
+          style={{
+            width: "70px",
+            height: "90px",
+            position: "relative",
+            overflow: "visible",
+          }}
         >
           <div
             style={{
@@ -568,7 +821,8 @@ export default function BackgroundPage() {
       style={{
         width: "100%",
         height: "100vh",
-        backgroundColor: "#f7f4ef",
+        background:
+          "radial-gradient(circle at 18% 18%, rgba(248,180,217,0.18), transparent 28%), radial-gradient(circle at 82% 24%, rgba(249,199,79,0.16), transparent 30%), radial-gradient(circle at 50% 82%, rgba(144,190,109,0.14), transparent 34%), #f7f4ef",
         overflow: "hidden",
         position: "relative",
         ...textStyle,
@@ -601,6 +855,31 @@ export default function BackgroundPage() {
           touchAction: "manipulation",
         }}
       >
+        {bouquetSeeds.map((seed, index) => {
+          const fallbackX = 14 + (index % 5) * 18;
+          const fallbackY = 18 + Math.floor(index / 5) * 13;
+          const x = typeof seed.x === "number" ? seed.x : fallbackX;
+          const y = typeof seed.y === "number" ? seed.y : fallbackY;
+
+          return (
+            <div
+              key={`bouquet-bg-${seed.id}`}
+              style={{
+                position: "absolute",
+                left: `${x}%`,
+                top: `${y}%`,
+                transform: "translate(-50%, -50%) scale(0.86)",
+                opacity: 0.3,
+                filter: "blur(0.2px)",
+                pointerEvents: "none",
+                zIndex: 1,
+              }}
+            >
+              {renderBouquetBackgroundSeed(seed)}
+            </div>
+          );
+        })}
+
         {worrySeeds.map((seed) => (
           <div
             key={seed.id}
@@ -615,6 +894,7 @@ export default function BackgroundPage() {
               left: `${seed.x}px`,
               top: `${seed.y}px`,
               transform: "translate(-50%, -50%)",
+              zIndex: 10,
             }}
           >
             {renderSeed(seed)}
@@ -706,7 +986,14 @@ export default function BackgroundPage() {
               </button>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "8px",
+                marginTop: "14px",
+              }}
+            >
               <button
                 onClick={() => setShowCreateModal(false)}
                 style={{
@@ -784,12 +1071,24 @@ export default function BackgroundPage() {
                   作成者：{getSeedAuthorName(openedSeed)}
                 </p>
 
-                <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, ...textStyle }}>
+                <p
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.6,
+                    ...textStyle,
+                  }}
+                >
                   {openedSeed.content}
                 </p>
 
                 {canEditOpenedSeed && (
-                  <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      marginBottom: "12px",
+                    }}
+                  >
                     <button
                       onClick={handleStartEditSeed}
                       style={{
@@ -843,7 +1142,13 @@ export default function BackgroundPage() {
                   style={{ ...inputStyle, minHeight: "100px" }}
                 />
 
-                <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
+                <p
+                  style={{
+                    fontSize: "13px",
+                    margin: "14px 0 6px",
+                    ...textStyle,
+                  }}
+                >
                   作成者の表示
                 </p>
 
@@ -865,7 +1170,13 @@ export default function BackgroundPage() {
                   </button>
                 </div>
 
-                <p style={{ fontSize: "13px", margin: "14px 0 6px", ...textStyle }}>
+                <p
+                  style={{
+                    fontSize: "13px",
+                    margin: "14px 0 6px",
+                    ...textStyle,
+                  }}
+                >
                   コメントの公開範囲
                 </p>
 
@@ -887,7 +1198,14 @@ export default function BackgroundPage() {
                   </button>
                 </div>
 
-                <div style={{ display: "flex", gap: "8px", marginTop: "12px", marginBottom: "12px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    marginTop: "12px",
+                    marginBottom: "12px",
+                  }}
+                >
                   <button
                     onClick={() => setIsEditingSeed(false)}
                     style={{
@@ -926,7 +1244,14 @@ export default function BackgroundPage() {
             {openedSeed.visibility === "public" ||
             openedSeed.creator_id === loggedInUserId ||
             isAdmin ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  marginBottom: "12px",
+                }}
+              >
                 {openedSeed.comments.map((comment) => {
                   const canDeleteComment =
                     comment.author_id === loggedInUserId ||
