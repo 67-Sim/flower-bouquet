@@ -276,6 +276,24 @@ export default function BouquetPage() {
     };
   };
 
+  const getBackgroundWorryPosition = (seed: BackgroundWorrySeed) => {
+    const convertToPercent = (value: number, axis: "x" | "y") => {
+      if (value <= 100) return clamp(value, 6, 94);
+
+      if (typeof window === "undefined") {
+        return clamp(value, 6, 94);
+      }
+
+      const size = axis === "x" ? window.innerWidth : window.innerHeight;
+      return clamp((value / size) * 100, 6, 94);
+    };
+
+    return {
+      x: convertToPercent(seed.x, "x"),
+      y: convertToPercent(seed.y, "y"),
+    };
+  };
+
   const canMoveSeed = (seed: BouquetSeed) => {
     return Boolean(
       loggedInUserId && (seed.owner_id === loggedInUserId || isAdmin),
@@ -1382,7 +1400,30 @@ export default function BouquetPage() {
           touchAction: isMoveMode ? "pan-y" : "auto",
         }}
       >
-        {/* 꽃 줄기: 꽃 아래에서 리본 매듭까지 자연스럽게 이어집니다 */}
+        {/* 고민 씨앗 배경: 고민 화면에서 만든 씨앗을 꽃다발 뒤에 흐리게 표시합니다 */}
+        {backgroundWorrySeeds.map((seed) => {
+          const position = getBackgroundWorryPosition(seed);
+
+          return (
+            <div
+              key={`background-worry-${seed.id}`}
+              style={{
+                position: "absolute",
+                left: `${position.x}%`,
+                top: `${position.y}%`,
+                transform: "translate(-50%, -50%) scale(0.82)",
+                opacity: 0.48,
+                filter: "saturate(0.92)",
+                pointerEvents: "none",
+                zIndex: 1,
+              }}
+            >
+              {renderBackgroundWorrySeed(seed)}
+            </div>
+          );
+        })}
+
+        {/* 꽃 줄기: 꽃 정중앙에서 리본 매듭까지 자연스럽게 이어집니다 */}
         <svg
           viewBox="0 0 100 132"
           preserveAspectRatio="none"
@@ -1400,7 +1441,13 @@ export default function BouquetPage() {
           {seeds.map((seed) => {
             const position = getSeedPosition(seed);
             const tieX = 50 + (position.x - 50) * 0.08;
-            const startY = position.y + 8;
+
+            // 줄기는 꽃 위치의 정중앙에서 시작합니다.
+            // 실제 화면에서는 꽃이 위에 덮이기 때문에,
+            // 줄기가 꽃 중앙을 뚫고 보이지 않고 꽃 아래부터 자연스럽게 이어져 보입니다.
+            const startX = position.x;
+            const startY = position.y;
+
             const tieY = 108 + getStableRandom(seed.id) * 4;
             const controlX = 50 + (position.x - 50) * 0.28;
             const controlY = 82 + getStableRandom(`${seed.id}-stem`) * 9;
@@ -1408,14 +1455,14 @@ export default function BouquetPage() {
             return (
               <g key={`stem-${seed.id}`}>
                 <path
-                  d={`M ${position.x} ${startY} Q ${controlX} ${controlY} ${tieX} ${tieY}`}
+                  d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${tieX} ${tieY}`}
                   fill="none"
                   stroke="rgba(77, 124, 68, 0.56)"
                   strokeWidth="0.78"
                   strokeLinecap="round"
                 />
                 <path
-                  d={`M ${position.x + 0.4} ${startY} Q ${controlX + 0.3} ${controlY} ${tieX + 0.2} ${tieY}`}
+                  d={`M ${startX + 0.4} ${startY} Q ${controlX + 0.3} ${controlY} ${tieX + 0.2} ${tieY}`}
                   fill="none"
                   stroke="rgba(255, 255, 255, 0.24)"
                   strokeWidth="0.24"
@@ -1425,44 +1472,6 @@ export default function BouquetPage() {
             );
           })}
         </svg>
-
-        {/* 원 바깥의 줄기 묶음 */}
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "100%",
-            width: "64px",
-            height: "86px",
-            transform: "translate(-50%, 0px)",
-            pointerEvents: "none",
-            zIndex: 5,
-          }}
-        >
-          {Array.from({ length: 9 }).map((_, i) => {
-            const offset = i - 4;
-            return (
-              <div
-                key={`outside-stem-${i}`}
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "0px",
-                  width: "3px",
-                  height: "86px",
-                  borderRadius: "999px",
-                  background:
-                    i % 2 === 0
-                      ? "rgba(77, 124, 68, 0.72)"
-                      : "rgba(104, 146, 84, 0.72)",
-                  transform: `translateX(${offset * 3}px) rotate(${offset * 3.5}deg)`,
-                  transformOrigin: "top center",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-                }}
-              />
-            );
-          })}
-        </div>
 
         {/* 리본은 꽃 이동 원 바깥에 두고, 줄기를 묶고 있는 것처럼 보이게 합니다 */}
         <div
