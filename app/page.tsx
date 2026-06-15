@@ -21,15 +21,8 @@ export default function LoginPage() {
   const [loggingIn, setLoggingIn] = useState(false);
 
   useEffect(() => {
-    const savedUserId = localStorage.getItem("logged-in-user-id");
-
-    if (savedUserId) {
-      router.replace("/bouquet");
-      return;
-    }
-
     setChecking(false);
-  }, [router]);
+  }, []);
 
   const handleLogin = async () => {
     const trimmedUserId = userId.trim();
@@ -173,7 +166,7 @@ export default function LoginPage() {
             margin: "0 0 22px",
           }}
         >
-          初めて入る時は、ここでパスワードを設定してください。
+          番号とパスワードを入力してください。
         </p>
 
         <input
