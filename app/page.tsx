@@ -18,27 +18,93 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [checking, setChecking] = useState(true);
-  const [loggingIn, setLoggingIn] = useState(false);
+  const [working, setWorking] = useState(false);
 
   useEffect(() => {
     setChecking(false);
   }, []);
 
-  const handleLogin = async () => {
+  const validateInput = () => {
     const trimmedUserId = userId.trim();
     const trimmedPassword = password.trim();
 
     if (!trimmedUserId) {
       setMessage("番号を入力してください。");
-      return;
+      return null;
     }
 
     if (!trimmedPassword) {
       setMessage("パスワードを入力してください。");
-      return;
+      return null;
     }
 
     if (trimmedUserId === ADMIN_ID) {
+      return { trimmedUserId, trimmedPassword, isAdmin: true };
+    }
+
+    const slotNumber = Number(trimmedUserId);
+
+    if (!Number.isInteger(slotNumber)) {
+      setMessage("4桁の番号を入力してください。");
+      return null;
+    }
+
+    if (!SLOT_NUMBERS.includes(slotNumber)) {
+      setMessage("使える番号は5260〜5300です。5285は使えません。");
+      return null;
+    }
+
+    return { trimmedUserId, trimmedPassword, isAdmin: false };
+  };
+
+  const handleSetPassword = async () => {
+    const input = validateInput();
+    if (!input) return;
+
+    const { trimmedUserId, trimmedPassword, isAdmin } = input;
+
+    if (isAdmin) {
+      setMessage("管理者パスワードはここでは設定できません。");
+      return;
+    }
+
+    setWorking(true);
+    setMessage("");
+
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", trimmedUserId)
+      .single();
+
+    if (error || !user) {
+      setWorking(false);
+      setMessage("この番号は登録されていません。");
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ password: trimmedPassword })
+      .eq("id", trimmedUserId);
+
+    setWorking(false);
+
+    if (updateError) {
+      setMessage(updateError.message);
+      return;
+    }
+
+    setMessage("パスワードを設定・変更しました。");
+  };
+
+  const handleLogin = async () => {
+    const input = validateInput();
+    if (!input) return;
+
+    const { trimmedUserId, trimmedPassword, isAdmin } = input;
+
+    if (isAdmin) {
       if (trimmedPassword !== `00${ADMIN_ID}`) {
         setMessage("パスワードが違います。");
         return;
@@ -49,19 +115,7 @@ export default function LoginPage() {
       return;
     }
 
-    const slotNumber = Number(trimmedUserId);
-
-    if (!Number.isInteger(slotNumber)) {
-      setMessage("4桁の番号を入力してください。");
-      return;
-    }
-
-    if (!SLOT_NUMBERS.includes(slotNumber)) {
-      setMessage("使える番号は5260〜5300です。5285は使えません。");
-      return;
-    }
-
-    setLoggingIn(true);
+    setWorking(true);
     setMessage("");
 
     const { data: user, error } = await supabase
@@ -70,31 +124,17 @@ export default function LoginPage() {
       .eq("id", trimmedUserId)
       .single();
 
+    setWorking(false);
+
     if (error || !user) {
-      setLoggingIn(false);
       setMessage("この番号は登録されていません。");
       return;
     }
 
     if (!user.password) {
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({ password: trimmedPassword })
-        .eq("id", trimmedUserId);
-
-      setLoggingIn(false);
-
-      if (updateError) {
-        setMessage(updateError.message);
-        return;
-      }
-
-      localStorage.setItem("logged-in-user-id", trimmedUserId);
-      router.push("/bouquet");
+      setMessage("まだパスワードが設定されていません。先に設定してください。");
       return;
     }
-
-    setLoggingIn(false);
 
     if (user.password !== trimmedPassword) {
       setMessage("パスワードが違います。");
@@ -166,7 +206,8 @@ export default function LoginPage() {
             margin: "0 0 22px",
           }}
         >
-          番号とパスワードを入力してください。
+          初めて入る時、または変更したい時は、番号とパスワードを入力して
+          「パスワード設定 / 変更」を押してください。
         </p>
 
         <input
@@ -228,7 +269,10 @@ export default function LoginPage() {
           <p
             style={{
               margin: "0 0 14px",
-              color: "#b85c5c",
+              color:
+                message.includes("設定") || message.includes("変更")
+                  ? "#4f8a5b"
+                  : "#b85c5c",
               fontSize: "13px",
               lineHeight: 1.5,
             }}
@@ -238,23 +282,44 @@ export default function LoginPage() {
         )}
 
         <button
+          onClick={handleSetPassword}
+          disabled={working}
+          style={{
+            width: "100%",
+            padding: "13px",
+            borderRadius: "14px",
+            border: "1px solid #d8cbbd",
+            backgroundColor: "#fff7df",
+            color: "#2f2a25",
+            WebkitTextFillColor: "#2f2a25",
+            fontSize: "15px",
+            fontWeight: 700,
+            cursor: working ? "not-allowed" : "pointer",
+            opacity: working ? 0.7 : 1,
+            marginBottom: "10px",
+          }}
+        >
+          パスワード設定 / 変更
+        </button>
+
+        <button
           onClick={handleLogin}
-          disabled={loggingIn}
+          disabled={working}
           style={{
             width: "100%",
             padding: "14px",
             borderRadius: "14px",
             border: "none",
-            backgroundColor: loggingIn ? "#d8b5c5" : "#e7c8d8",
+            backgroundColor: working ? "#d8b5c5" : "#e7c8d8",
             color: "#2f2a25",
             WebkitTextFillColor: "#2f2a25",
             fontSize: "16px",
             fontWeight: 700,
-            cursor: loggingIn ? "not-allowed" : "pointer",
+            cursor: working ? "not-allowed" : "pointer",
             opacity: 1,
           }}
         >
-          {loggingIn ? "確認中..." : "入る"}
+          {working ? "確認中..." : "入る"}
         </button>
       </div>
     </main>
