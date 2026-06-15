@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
 
 const ADMIN_ID = "comany67";
 
@@ -11,10 +12,13 @@ const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
 
 export default function LoginPage() {
   const router = useRouter();
+  const supabase = createClient();
 
   const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [checking, setChecking] = useState(true);
+  const [loggingIn, setLoggingIn] = useState(false);
 
   useEffect(() => {
     const savedUserId = localStorage.getItem("logged-in-user-id");
@@ -27,15 +31,26 @@ export default function LoginPage() {
     setChecking(false);
   }, [router]);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const trimmedUserId = userId.trim();
+    const trimmedPassword = password.trim();
 
     if (!trimmedUserId) {
       setMessage("番号を入力してください。");
       return;
     }
 
+    if (!trimmedPassword) {
+      setMessage("パスワードを入力してください。");
+      return;
+    }
+
     if (trimmedUserId === ADMIN_ID) {
+      if (trimmedPassword !== `00${ADMIN_ID}`) {
+        setMessage("パスワードが違います。");
+        return;
+      }
+
       localStorage.setItem("logged-in-user-id", ADMIN_ID);
       router.push("/bouquet");
       return;
@@ -53,7 +68,47 @@ export default function LoginPage() {
       return;
     }
 
-    localStorage.setItem("logged-in-user-id", String(slotNumber));
+    setLoggingIn(true);
+    setMessage("");
+
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, password")
+      .eq("id", trimmedUserId)
+      .single();
+
+    if (error || !user) {
+      setLoggingIn(false);
+      setMessage("この番号は登録されていません。");
+      return;
+    }
+
+    if (!user.password) {
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ password: trimmedPassword })
+        .eq("id", trimmedUserId);
+
+      setLoggingIn(false);
+
+      if (updateError) {
+        setMessage(updateError.message);
+        return;
+      }
+
+      localStorage.setItem("logged-in-user-id", trimmedUserId);
+      router.push("/bouquet");
+      return;
+    }
+
+    setLoggingIn(false);
+
+    if (user.password !== trimmedPassword) {
+      setMessage("パスワードが違います。");
+      return;
+    }
+
+    localStorage.setItem("logged-in-user-id", trimmedUserId);
     router.push("/bouquet");
   };
 
@@ -118,7 +173,7 @@ export default function LoginPage() {
             margin: "0 0 22px",
           }}
         >
-          自分の番号を入力してください。
+          初めて入る時は、ここでパスワードを設定してください。
         </p>
 
         <input
@@ -127,13 +182,38 @@ export default function LoginPage() {
             setUserId(e.target.value);
             setMessage("");
           }}
+          placeholder="番号 例：5261"
+          inputMode="numeric"
+          style={{
+            width: "100%",
+            padding: "14px 16px",
+            borderRadius: "14px",
+            border: "1px solid #d8cbbd",
+            boxSizing: "border-box",
+            fontSize: "18px",
+            textAlign: "center",
+            marginBottom: "12px",
+            backgroundColor: "#fff",
+            color: "#2f2a25",
+            WebkitTextFillColor: "#2f2a25",
+            opacity: 1,
+            outline: "none",
+          }}
+        />
+
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setMessage("");
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               handleLogin();
             }
           }}
-          placeholder="例：5261"
-          inputMode="numeric"
+          placeholder="パスワード"
           style={{
             width: "100%",
             padding: "14px 16px",
@@ -166,21 +246,22 @@ export default function LoginPage() {
 
         <button
           onClick={handleLogin}
+          disabled={loggingIn}
           style={{
             width: "100%",
             padding: "14px",
             borderRadius: "14px",
             border: "none",
-            backgroundColor: "#e7c8d8",
+            backgroundColor: loggingIn ? "#d8b5c5" : "#e7c8d8",
             color: "#2f2a25",
             WebkitTextFillColor: "#2f2a25",
             fontSize: "16px",
             fontWeight: 700,
-            cursor: "pointer",
+            cursor: loggingIn ? "not-allowed" : "pointer",
             opacity: 1,
           }}
         >
-          入る
+          {loggingIn ? "確認中..." : "入る"}
         </button>
       </div>
     </main>
