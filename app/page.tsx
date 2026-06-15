@@ -53,61 +53,6 @@ export default function LoginPage() {
     return { trimmedUserId, isAdmin: false };
   };
 
-  const handleSetPassword = async () => {
-    const input = validateUserId();
-    if (!input) return;
-
-    const { trimmedUserId, isAdmin } = input;
-    const trimmedPassword = password.trim();
-
-    if (isAdmin) {
-      setMessage("管理者パスワードはここでは設定できません。");
-      return;
-    }
-
-    if (!trimmedPassword) {
-      setMessage("設定するパスワードを入力してください。");
-      return;
-    }
-
-    setWorking(true);
-    setMessage("");
-
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, password")
-      .eq("id", trimmedUserId)
-      .single();
-
-    if (error || !user) {
-      setWorking(false);
-      setMessage("この番号は登録されていません。");
-      return;
-    }
-
-    if (user.password) {
-      setWorking(false);
-      setMessage("すでにパスワードがあります。変更する場合は下の変更欄を使ってください。");
-      return;
-    }
-
-    const { data: updatedUser, error: updateError } = await supabase
-      .from("users")
-      .update({ password: trimmedPassword })
-      .eq("id", trimmedUserId)
-      .select("id, password")
-      .single();
-
-    setWorking(false);
-
-    if (updateError || !updatedUser) {
-      setMessage(updateError?.message || "パスワード設定に失敗しました。");
-      return;
-    }
-
-    setMessage("パスワードを設定しました。");
-  };
-
   const handleChangePassword = async () => {
     const input = validateUserId();
     if (!input) return;
@@ -148,7 +93,7 @@ export default function LoginPage() {
 
     if (!user.password) {
       setWorking(false);
-      setMessage("まだパスワードが設定されていません。先に設定してください。");
+      setMessage("まだパスワードが登録されていません。管理者に初期パスワードの登録を依頼してください。");
       return;
     }
 
@@ -218,7 +163,7 @@ export default function LoginPage() {
     }
 
     if (!user.password) {
-      setMessage("まだパスワードが設定されていません。先に設定してください。");
+      setMessage("まだパスワードが登録されていません。管理者に初期パスワードの登録を依頼してください。");
       return;
     }
 
@@ -305,11 +250,33 @@ export default function LoginPage() {
           style={inputStyle}
         />
 
-        <button onClick={handleSetPassword} disabled={working} style={subButtonStyle}>
-          初回パスワード設定
+        {message && (
+          <p
+            style={{
+              margin: "14px 0",
+              color:
+                message.includes("変更しました")
+                  ? "#4f8a5b"
+                  : "#b85c5c",
+              fontSize: "13px",
+              lineHeight: 1.5,
+            }}
+          >
+            {message}
+          </p>
+        )}
+
+        <button onClick={handleLogin} disabled={working} style={mainButtonStyle}>
+          {working ? "確認中..." : "入る"}
         </button>
 
-        <hr style={{ border: "none", borderTop: "1px solid #eadfd3", margin: "18px 0" }} />
+        <hr
+          style={{
+            border: "none",
+            borderTop: "1px solid #eadfd3",
+            margin: "22px 0 18px",
+          }}
+        />
 
         <p style={{ fontSize: "13px", color: "#7a6b5d", lineHeight: 1.5 }}>
           パスワードを変更する場合
@@ -339,26 +306,6 @@ export default function LoginPage() {
 
         <button onClick={handleChangePassword} disabled={working} style={subButtonStyle}>
           パスワード変更
-        </button>
-
-        {message && (
-          <p
-            style={{
-              margin: "14px 0",
-              color:
-                message.includes("設定") || message.includes("変更")
-                  ? "#4f8a5b"
-                  : "#b85c5c",
-              fontSize: "13px",
-              lineHeight: 1.5,
-            }}
-          >
-            {message}
-          </p>
-        )}
-
-        <button onClick={handleLogin} disabled={working} style={mainButtonStyle}>
-          {working ? "確認中..." : "入る"}
         </button>
       </div>
     </main>
