@@ -16,6 +16,8 @@ export default function LoginPage() {
 
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
   const [checking, setChecking] = useState(true);
   const [working, setWorking] = useState(false);
@@ -24,22 +26,16 @@ export default function LoginPage() {
     setChecking(false);
   }, []);
 
-  const validateInput = () => {
+  const validateUserId = () => {
     const trimmedUserId = userId.trim();
-    const trimmedPassword = password.trim();
 
     if (!trimmedUserId) {
       setMessage("番号を入力してください。");
       return null;
     }
 
-    if (!trimmedPassword) {
-      setMessage("パスワードを入力してください。");
-      return null;
-    }
-
     if (trimmedUserId === ADMIN_ID) {
-      return { trimmedUserId, trimmedPassword, isAdmin: true };
+      return { trimmedUserId, isAdmin: true };
     }
 
     const slotNumber = Number(trimmedUserId);
@@ -54,17 +50,23 @@ export default function LoginPage() {
       return null;
     }
 
-    return { trimmedUserId, trimmedPassword, isAdmin: false };
+    return { trimmedUserId, isAdmin: false };
   };
 
   const handleSetPassword = async () => {
-    const input = validateInput();
+    const input = validateUserId();
     if (!input) return;
 
-    const { trimmedUserId, trimmedPassword, isAdmin } = input;
+    const { trimmedUserId, isAdmin } = input;
+    const trimmedPassword = password.trim();
 
     if (isAdmin) {
       setMessage("管理者パスワードはここでは設定できません。");
+      return;
+    }
+
+    if (!trimmedPassword) {
+      setMessage("設定するパスワードを入力してください。");
       return;
     }
 
@@ -73,7 +75,7 @@ export default function LoginPage() {
 
     const { data: user, error } = await supabase
       .from("users")
-      .select("id")
+      .select("id, password")
       .eq("id", trimmedUserId)
       .single();
 
@@ -83,26 +85,110 @@ export default function LoginPage() {
       return;
     }
 
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({ password: trimmedPassword })
-      .eq("id", trimmedUserId);
-
-    setWorking(false);
-
-    if (updateError) {
-      setMessage(updateError.message);
+    if (user.password) {
+      setWorking(false);
+      setMessage("すでにパスワードがあります。変更する場合は下の変更欄を使ってください。");
       return;
     }
 
-    setMessage("パスワードを設定・変更しました。");
+    const { data: updatedUser, error: updateError } = await supabase
+      .from("users")
+      .update({ password: trimmedPassword })
+      .eq("id", trimmedUserId)
+      .select("id, password")
+      .single();
+
+    setWorking(false);
+
+    if (updateError || !updatedUser) {
+      setMessage(updateError?.message || "パスワード設定に失敗しました。");
+      return;
+    }
+
+    setMessage("パスワードを設定しました。");
+  };
+
+  const handleChangePassword = async () => {
+    const input = validateUserId();
+    if (!input) return;
+
+    const { trimmedUserId, isAdmin } = input;
+    const trimmedCurrentPassword = currentPassword.trim();
+    const trimmedNewPassword = newPassword.trim();
+
+    if (isAdmin) {
+      setMessage("管理者パスワードはここでは変更できません。");
+      return;
+    }
+
+    if (!trimmedCurrentPassword) {
+      setMessage("現在のパスワードを入力してください。");
+      return;
+    }
+
+    if (!trimmedNewPassword) {
+      setMessage("新しいパスワードを入力してください。");
+      return;
+    }
+
+    setWorking(true);
+    setMessage("");
+
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, password")
+      .eq("id", trimmedUserId)
+      .single();
+
+    if (error || !user) {
+      setWorking(false);
+      setMessage("この番号は登録されていません。");
+      return;
+    }
+
+    if (!user.password) {
+      setWorking(false);
+      setMessage("まだパスワードが設定されていません。先に設定してください。");
+      return;
+    }
+
+    if (user.password !== trimmedCurrentPassword) {
+      setWorking(false);
+      setMessage("現在のパスワードが違います。");
+      return;
+    }
+
+    const { data: updatedUser, error: updateError } = await supabase
+      .from("users")
+      .update({ password: trimmedNewPassword })
+      .eq("id", trimmedUserId)
+      .select("id, password")
+      .single();
+
+    setWorking(false);
+
+    if (updateError || !updatedUser) {
+      setMessage(updateError?.message || "パスワード変更に失敗しました。");
+      return;
+    }
+
+    setPassword(trimmedNewPassword);
+    setCurrentPassword("");
+    setNewPassword("");
+    setMessage("パスワードを変更しました。");
   };
 
   const handleLogin = async () => {
-    const input = validateInput();
+    const input = validateUserId();
     if (!input) return;
 
-    const { trimmedUserId, trimmedPassword, isAdmin } = input;
+    const { trimmedUserId, isAdmin } = input;
+    const trimmedPassword = password.trim();
+
+    if (!trimmedPassword) {
+      setMessage("パスワードを入力してください。");
+      return;
+    }
 
     if (isAdmin) {
       if (trimmedPassword !== `00${ADMIN_ID}`) {
@@ -186,28 +272,12 @@ export default function LoginPage() {
           textAlign: "center",
         }}
       >
-        <h1
-          style={{
-            fontSize: "30px",
-            margin: "0 0 10px",
-            color: "#2f2a25",
-            WebkitTextFillColor: "#2f2a25",
-            opacity: 1,
-          }}
-        >
+        <h1 style={{ fontSize: "30px", margin: "0 0 10px", color: "#2f2a25" }}>
           🌸 花束
         </h1>
 
-        <p
-          style={{
-            fontSize: "14px",
-            color: "#7a6b5d",
-            lineHeight: 1.6,
-            margin: "0 0 22px",
-          }}
-        >
-          初めて入る時、または変更したい時は、番号とパスワードを入力して
-          「パスワード設定 / 変更」を押してください。
+        <p style={{ fontSize: "14px", color: "#7a6b5d", lineHeight: 1.6 }}>
+          番号とパスワードを入力してください。
         </p>
 
         <input
@@ -218,21 +288,7 @@ export default function LoginPage() {
           }}
           placeholder="番号 例：5261"
           inputMode="numeric"
-          style={{
-            width: "100%",
-            padding: "14px 16px",
-            borderRadius: "14px",
-            border: "1px solid #d8cbbd",
-            boxSizing: "border-box",
-            fontSize: "18px",
-            textAlign: "center",
-            marginBottom: "12px",
-            backgroundColor: "#fff",
-            color: "#2f2a25",
-            WebkitTextFillColor: "#2f2a25",
-            opacity: 1,
-            outline: "none",
-          }}
+          style={inputStyle}
         />
 
         <input
@@ -243,32 +299,52 @@ export default function LoginPage() {
             setMessage("");
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              handleLogin();
-            }
+            if (e.key === "Enter") handleLogin();
           }}
           placeholder="パスワード"
-          style={{
-            width: "100%",
-            padding: "14px 16px",
-            borderRadius: "14px",
-            border: "1px solid #d8cbbd",
-            boxSizing: "border-box",
-            fontSize: "18px",
-            textAlign: "center",
-            marginBottom: "14px",
-            backgroundColor: "#fff",
-            color: "#2f2a25",
-            WebkitTextFillColor: "#2f2a25",
-            opacity: 1,
-            outline: "none",
-          }}
+          style={inputStyle}
         />
+
+        <button onClick={handleSetPassword} disabled={working} style={subButtonStyle}>
+          初回パスワード設定
+        </button>
+
+        <hr style={{ border: "none", borderTop: "1px solid #eadfd3", margin: "18px 0" }} />
+
+        <p style={{ fontSize: "13px", color: "#7a6b5d", lineHeight: 1.5 }}>
+          パスワードを変更する場合
+        </p>
+
+        <input
+          type="password"
+          value={currentPassword}
+          onChange={(e) => {
+            setCurrentPassword(e.target.value);
+            setMessage("");
+          }}
+          placeholder="現在のパスワード"
+          style={inputStyle}
+        />
+
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(e) => {
+            setNewPassword(e.target.value);
+            setMessage("");
+          }}
+          placeholder="新しいパスワード"
+          style={inputStyle}
+        />
+
+        <button onClick={handleChangePassword} disabled={working} style={subButtonStyle}>
+          パスワード変更
+        </button>
 
         {message && (
           <p
             style={{
-              margin: "0 0 14px",
+              margin: "14px 0",
               color:
                 message.includes("設定") || message.includes("変更")
                   ? "#4f8a5b"
@@ -281,47 +357,54 @@ export default function LoginPage() {
           </p>
         )}
 
-        <button
-          onClick={handleSetPassword}
-          disabled={working}
-          style={{
-            width: "100%",
-            padding: "13px",
-            borderRadius: "14px",
-            border: "1px solid #d8cbbd",
-            backgroundColor: "#fff7df",
-            color: "#2f2a25",
-            WebkitTextFillColor: "#2f2a25",
-            fontSize: "15px",
-            fontWeight: 700,
-            cursor: working ? "not-allowed" : "pointer",
-            opacity: working ? 0.7 : 1,
-            marginBottom: "10px",
-          }}
-        >
-          パスワード設定 / 変更
-        </button>
-
-        <button
-          onClick={handleLogin}
-          disabled={working}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "14px",
-            border: "none",
-            backgroundColor: working ? "#d8b5c5" : "#e7c8d8",
-            color: "#2f2a25",
-            WebkitTextFillColor: "#2f2a25",
-            fontSize: "16px",
-            fontWeight: 700,
-            cursor: working ? "not-allowed" : "pointer",
-            opacity: 1,
-          }}
-        >
+        <button onClick={handleLogin} disabled={working} style={mainButtonStyle}>
           {working ? "確認中..." : "入る"}
         </button>
       </div>
     </main>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "14px 16px",
+  borderRadius: "14px",
+  border: "1px solid #d8cbbd",
+  boxSizing: "border-box",
+  fontSize: "18px",
+  textAlign: "center",
+  marginBottom: "12px",
+  backgroundColor: "#fff",
+  color: "#2f2a25",
+  WebkitTextFillColor: "#2f2a25",
+  opacity: 1,
+  outline: "none",
+};
+
+const subButtonStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "13px",
+  borderRadius: "14px",
+  border: "1px solid #d8cbbd",
+  backgroundColor: "#fff7df",
+  color: "#2f2a25",
+  WebkitTextFillColor: "#2f2a25",
+  fontSize: "15px",
+  fontWeight: 700,
+  cursor: "pointer",
+  marginBottom: "10px",
+};
+
+const mainButtonStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "14px",
+  borderRadius: "14px",
+  border: "none",
+  backgroundColor: "#e7c8d8",
+  color: "#2f2a25",
+  WebkitTextFillColor: "#2f2a25",
+  fontSize: "16px",
+  fontWeight: 700,
+  cursor: "pointer",
+  opacity: 1,
+};
