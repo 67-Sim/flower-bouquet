@@ -731,74 +731,88 @@ export default function BouquetPage() {
     setLoading(true);
     setMessage("");
 
-    const currentUserId = localStorage.getItem("logged-in-user-id");
+    try {
+      const currentUserId = localStorage.getItem("logged-in-user-id");
 
-    if (!currentUserId) {
-      router.push("/");
-      return;
-    }
-
-    setLoggedInUserId(currentUserId);
-
-    const { data: seedRows, error: seedError } = await supabase
-      .from("bouquet_seeds")
-      .select(
-        "id, owner_id, slot_number, title, flower_color, flower_shape, x, y, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)",
-      )
-      .order("slot_number", { ascending: true });
-
-    if (seedError) {
-      setMessage(seedError.message);
-      setLoading(false);
-      return;
-    }
-
-    const seedIds = (seedRows ?? []).map((seed) => seed.id);
-
-    let commentRows: SeedComment[] = [];
-
-    if (seedIds.length > 0) {
-      const { data: commentData, error: commentError } = await supabase
-        .from("seed_comments")
-        .select(
-          "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)",
-        )
-        .in("seed_id", seedIds)
-        .order("created_at", { ascending: true });
-
-      if (commentError) {
-        setMessage(commentError.message);
-        setLoading(false);
+      if (!currentUserId) {
+        router.replace("/");
         return;
       }
 
-      commentRows = (commentData ?? []) as SeedComment[];
-    }
+      setLoggedInUserId(currentUserId);
 
-    const mergedSeeds: BouquetSeed[] = ((seedRows ?? []) as BouquetSeed[]).map(
-      (seed) => ({
-        ...seed,
-        comments: commentRows.filter((comment) => comment.seed_id === seed.id),
-      }),
-    );
+      const { data: seedRows, error: seedError } = await supabase
+        .from("bouquet_seeds")
+        .select(
+          "id, owner_id, slot_number, title, flower_color, flower_shape, x, y, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)",
+        )
+        .order("slot_number", { ascending: true });
 
-    setSeeds(mergedSeeds);
+      if (seedError) {
+        setMessage(seedError.message);
+        return;
+      }
 
-    const { data: worryRows, error: worryError } = await supabase
-      .from("worry_seeds")
-      .select("id, x, y, title, flower_color")
-      .order("created_at", { ascending: true });
+      const seedIds = (seedRows ?? []).map((seed) => seed.id);
 
-    if (!worryError) {
+      let commentRows: SeedComment[] = [];
+
+      if (seedIds.length > 0) {
+        const { data: commentData, error: commentError } = await supabase
+          .from("seed_comments")
+          .select(
+            "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)",
+          )
+          .in("seed_id", seedIds)
+          .order("created_at", { ascending: true });
+
+        if (commentError) {
+          setMessage(commentError.message);
+          return;
+        }
+
+        commentRows = (commentData ?? []) as SeedComment[];
+      }
+
+      const mergedSeeds: BouquetSeed[] = ((seedRows ?? []) as BouquetSeed[]).map(
+        (seed) => ({
+          ...seed,
+          comments: commentRows.filter((comment) => comment.seed_id === seed.id),
+        }),
+      );
+
+      setSeeds(mergedSeeds);
+
+      const { data: worryRows, error: worryError } = await supabase
+        .from("worry_seeds")
+        .select("id, x, y, title, flower_color")
+        .order("created_at", { ascending: true });
+
+      if (worryError) {
+        // 背景の悩み種だけ失敗しても、花束本体は表示します。
+        setBackgroundWorrySeeds([]);
+        console.error("Failed to load worry seeds:", worryError.message);
+        return;
+      }
+
       const worryIds = (worryRows ?? []).map((seed) => seed.id);
 
       let worryCommentRows: BackgroundWorryComment[] = [];
 
       if (worryIds.length > 0) {
-        const { data: worryComments } = await supabase
+        const { data: worryComments, error: worryCommentsError } = await supabase
           .from("worry_comments")
           .select("id, worry_seed_id")
           .in("worry_seed_id", worryIds);
+
+        if (worryCommentsError) {
+          setBackgroundWorrySeeds([]);
+          console.error(
+            "Failed to load worry comments:",
+            worryCommentsError.message,
+          );
+          return;
+        }
 
         worryCommentRows = (worryComments ?? []) as BackgroundWorryComment[];
       }
@@ -813,9 +827,14 @@ export default function BouquetPage() {
       }));
 
       setBackgroundWorrySeeds(mergedWorrySeeds);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "読み込みに失敗しました。";
+      setMessage(errorMessage);
+      console.error("Failed to load bouquet page:", error);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
