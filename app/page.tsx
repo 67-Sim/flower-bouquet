@@ -182,7 +182,7 @@ export default function LoginPage() {
             setUserId(e.target.value);
             setMessage("");
           }}
-          placeholder="番号 例：5274"
+          placeholder="番号 例：5261"
           inputMode="numeric"
           style={{
             width: "100%",
