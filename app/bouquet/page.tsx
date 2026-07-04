@@ -53,14 +53,12 @@ type BackgroundWorrySeed = {
   comments: BackgroundWorryComment[];
 };
 
-
 type LaunchDrag = {
   seedId: string;
   pointerId: number;
   start: { x: number; y: number };
   current: { x: number; y: number };
 };
-
 
 const ADMIN_ID = "comany67";
 
@@ -163,55 +161,14 @@ const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
   (num) => num !== 5285,
 );
 
-const BOUQUET_POSITIONS = [
-  { x: 50, y: 10 },
-  { x: 42, y: 16 },
-  { x: 58, y: 16 },
-  { x: 34, y: 23 },
-  { x: 50, y: 22 },
-  { x: 66, y: 23 },
-  { x: 27, y: 32 },
-  { x: 40, y: 31 },
-  { x: 53, y: 30 },
-  { x: 66, y: 31 },
-  { x: 78, y: 32 },
-  { x: 22, y: 42 },
-  { x: 34, y: 41 },
-  { x: 46, y: 40 },
-  { x: 58, y: 40 },
-  { x: 70, y: 41 },
-  { x: 82, y: 42 },
-  { x: 18, y: 53 },
-  { x: 30, y: 52 },
-  { x: 42, y: 51 },
-  { x: 54, y: 51 },
-  { x: 66, y: 52 },
-  { x: 78, y: 53 },
-  { x: 25, y: 63 },
-  { x: 37, y: 62 },
-  { x: 49, y: 61 },
-  { x: 61, y: 62 },
-  { x: 73, y: 63 },
-  { x: 31, y: 72 },
-  { x: 43, y: 71 },
-  { x: 55, y: 71 },
-  { x: 67, y: 72 },
-  { x: 38, y: 80 },
-  { x: 50, y: 79 },
-  { x: 62, y: 80 },
-  { x: 44, y: 88 },
-  { x: 56, y: 88 },
-  { x: 36, y: 92 },
-  { x: 50, y: 94 },
-  { x: 64, y: 92 },
-];
-
 const EDGE_MARGIN = 8;
-const LAUNCH_POWER = 0.24;
+const MIN_FLOWER_DISTANCE = 7;
+const REPULSION_ITERATIONS = 3;
+const LAUNCH_POWER = 0.22;
 const LAUNCH_FRICTION = 0.94;
-const LAUNCH_BOUNCE = 0.34;
+const LAUNCH_BOUNCE = 0.35;
 const LAUNCH_STOP_SPEED = 0.08;
-const MAX_PULL_DISTANCE = 22;
+const MAX_PULL_DISTANCE = 20;
 
 const clamp = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max);
@@ -255,8 +212,10 @@ export default function BouquetPage() {
   const router = useRouter();
 
   const gardenRef = useRef<HTMLDivElement | null>(null);
-  const launchDragRef = useRef<LaunchDrag | null>(null);
+  const draggingSeedIdRef = useRef<string | null>(null);
+  const dragPositionRef = useRef<{ x: number; y: number } | null>(null);
   const dragStartedRef = useRef(false);
+  const launchDragRef = useRef<LaunchDrag | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
   const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
@@ -284,7 +243,9 @@ export default function BouquetPage() {
     return seeds.find((seed) => seed.slot_number === openedSlotNumber) ?? null;
   }, [openedSlotNumber, seeds]);
 
-  const isOwner = Boolean(openedSeed && loggedInUserId === openedSeed.owner_id);
+  const isOwner = Boolean(
+    openedSeed && String(loggedInUserId) === String(openedSeed.owner_id),
+  );
 
   const canViewComments = Boolean(isOwner || isAdmin);
 
@@ -309,8 +270,7 @@ export default function BouquetPage() {
   };
 
   const getSeedPosition = (seed: BouquetSeed) => {
-    const index = Math.max(0, SLOT_NUMBERS.indexOf(seed.slot_number));
-    const fallback = BOUQUET_POSITIONS[index] ?? getDefaultPosition(seed.slot_number);
+    const fallback = getDefaultPosition(seed.slot_number);
 
     return {
       x: typeof seed.x === "number" ? seed.x : fallback.x,
@@ -320,26 +280,8 @@ export default function BouquetPage() {
 
   const canMoveSeed = (seed: BouquetSeed) => {
     return Boolean(
-      loggedInUserId && (seed.owner_id === loggedInUserId || isAdmin),
+      loggedInUserId && (String(seed.owner_id) === String(loggedInUserId) || isAdmin),
     );
-  };
-
-  const getBackgroundWorryPosition = (seed: BackgroundWorrySeed) => {
-    const convertToPercent = (value: number, axis: "x" | "y") => {
-      if (value <= 100) return clamp(value, 6, 94);
-
-      if (typeof window === "undefined") {
-        return clamp(value, 6, 94);
-      }
-
-      const size = axis === "x" ? window.innerWidth : window.innerHeight;
-      return clamp((value / size) * 100, 6, 94);
-    };
-
-    return {
-      x: convertToPercent(seed.x, "x"),
-      y: convertToPercent(seed.y, "y"),
-    };
   };
 
   const getCommentAuthorLabel = (comment: SeedComment) => {
@@ -769,92 +711,105 @@ export default function BouquetPage() {
     );
   };
 
+  const loadAllSeedComments = async (seedIds: string[]) => {
+    const allComments: SeedComment[] = [];
+    const pageSize = 1000;
+
+    for (let from = 0; ; from += pageSize) {
+      const to = from + pageSize - 1;
+
+      const { data, error } = await supabase
+        .from("seed_comments")
+        .select(
+          "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)",
+        )
+        .in("seed_id", seedIds)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+
+      if (error) {
+        throw error;
+      }
+
+      const rows = (data ?? []) as SeedComment[];
+      allComments.push(...rows);
+
+      if (rows.length < pageSize) {
+        break;
+      }
+    }
+
+    return allComments;
+  };
+
   const loadSeeds = async () => {
     setLoading(true);
     setMessage("");
 
-    try {
-      const currentUserId = localStorage.getItem("logged-in-user-id");
+    const currentUserId = localStorage.getItem("logged-in-user-id");
 
-      if (!currentUserId) {
-        router.replace("/");
+    if (!currentUserId) {
+      router.push("/");
+      return;
+    }
+
+    setLoggedInUserId(currentUserId);
+
+    const { data: seedRows, error: seedError } = await supabase
+      .from("bouquet_seeds")
+      .select(
+        "id, owner_id, slot_number, title, flower_color, flower_shape, x, y, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)",
+      )
+      .order("slot_number", { ascending: true });
+
+    if (seedError) {
+      setMessage(seedError.message);
+      setLoading(false);
+      return;
+    }
+
+    const seedIds = (seedRows ?? []).map((seed) => seed.id);
+
+    let commentRows: SeedComment[] = [];
+
+    if (seedIds.length > 0) {
+      try {
+        commentRows = await loadAllSeedComments(seedIds);
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "コメントの読み込みに失敗しました。",
+        );
+        setLoading(false);
         return;
       }
+    }
 
-      setLoggedInUserId(currentUserId);
+    const mergedSeeds: BouquetSeed[] = ((seedRows ?? []) as BouquetSeed[]).map(
+      (seed) => ({
+        ...seed,
+        comments: commentRows.filter((comment) => comment.seed_id === seed.id),
+      }),
+    );
 
-      const { data: seedRows, error: seedError } = await supabase
-        .from("bouquet_seeds")
-        .select(
-          "id, owner_id, slot_number, title, flower_color, flower_shape, x, y, created_at, owner:users!bouquet_seeds_owner_id_fkey(name)",
-        )
-        .order("slot_number", { ascending: true });
+    setSeeds(mergedSeeds);
 
-      if (seedError) {
-        setMessage(seedError.message);
-        return;
-      }
+    const { data: worryRows, error: worryError } = await supabase
+      .from("worry_seeds")
+      .select("id, x, y, title, flower_color")
+      .order("created_at", { ascending: true });
 
-      const seedIds = (seedRows ?? []).map((seed) => seed.id);
-
-      let commentRows: SeedComment[] = [];
-
-      if (seedIds.length > 0) {
-        const { data: commentData, error: commentError } = await supabase
-          .from("seed_comments")
-          .select(
-            "id, seed_id, author_id, content, is_anonymous, created_at, author:users!seed_comments_author_id_fkey(name)",
-          )
-          .in("seed_id", seedIds)
-          .order("created_at", { ascending: true });
-
-        if (commentError) {
-          setMessage(commentError.message);
-          return;
-        }
-
-        commentRows = (commentData ?? []) as SeedComment[];
-      }
-
-      const mergedSeeds: BouquetSeed[] = ((seedRows ?? []) as BouquetSeed[]).map(
-        (seed) => ({
-          ...seed,
-          comments: commentRows.filter((comment) => comment.seed_id === seed.id),
-        }),
-      );
-
-      setSeeds(mergedSeeds);
-
-      const { data: worryRows, error: worryError } = await supabase
-        .from("worry_seeds")
-        .select("id, x, y, title, flower_color")
-        .order("created_at", { ascending: true });
-
-      if (worryError) {
-        // 背景の悩み種だけ失敗しても、花束本体は表示します。
-        setBackgroundWorrySeeds([]);
-        console.error("Failed to load worry seeds:", worryError.message);
-        return;
-      }
-
+    if (!worryError) {
       const worryIds = (worryRows ?? []).map((seed) => seed.id);
 
       let worryCommentRows: BackgroundWorryComment[] = [];
 
       if (worryIds.length > 0) {
-        const { data: worryComments, error: worryCommentsError } = await supabase
+        const { data: worryComments } = await supabase
           .from("worry_comments")
           .select("id, worry_seed_id")
           .in("worry_seed_id", worryIds);
-
-        if (worryCommentsError) {
-          setBackgroundWorrySeeds([]);
-          console.error(
-            "Failed to load worry comments:",
-            worryCommentsError.message,
-          );
-          return;
-        }
 
         worryCommentRows = (worryComments ?? []) as BackgroundWorryComment[];
       }
@@ -869,14 +824,9 @@ export default function BouquetPage() {
       }));
 
       setBackgroundWorrySeeds(mergedWorrySeeds);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "読み込みに失敗しました。";
-      setMessage(errorMessage);
-      console.error("Failed to load bouquet page:", error);
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -917,33 +867,52 @@ export default function BouquetPage() {
     };
   };
 
-  const updateSeedPositionLocal = (
-    seedId: string,
-    position: { x: number; y: number },
+  const resolveFlowerPositions = (
+    movingSeedId: string,
+    movingPosition: { x: number; y: number },
   ) => {
-    setSeeds((prev) =>
-      prev.map((seed) =>
-        seed.id === seedId ? { ...seed, x: position.x, y: position.y } : seed,
-      ),
-    );
+    const positions = seeds.map((seed) => ({
+      id: seed.id,
+      x: seed.id === movingSeedId ? movingPosition.x : getSeedPosition(seed).x,
+      y: seed.id === movingSeedId ? movingPosition.y : getSeedPosition(seed).y,
+    }));
+
+    for (let loop = 0; loop < REPULSION_ITERATIONS; loop++) {
+      for (let i = 0; i < positions.length; i++) {
+        for (let j = i + 1; j < positions.length; j++) {
+          const a = positions[i];
+          const b = positions[j];
+
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const distance = Math.sqrt(dx * dx + dy * dy) || 0.001;
+
+          if (distance < MIN_FLOWER_DISTANCE) {
+            const push = (MIN_FLOWER_DISTANCE - distance) / 2;
+            const nx = dx / distance;
+            const ny = dy / distance;
+
+            a.x = clamp(a.x - nx * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
+            a.y = clamp(a.y - ny * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
+            b.x = clamp(b.x + nx * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
+            b.y = clamp(b.y + ny * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
+          }
+        }
+      }
+    }
+
+    return positions;
   };
 
-  const saveSeedPosition = async (
-    seedId: string,
-    position: { x: number; y: number },
+  const updateSeedPositionsLocal = (
+    positions: { id: string; x: number; y: number }[],
   ) => {
-    const { error } = await supabase
-      .from("bouquet_seeds")
-      .update({
-        x: position.x,
-        y: position.y,
-      })
-      .eq("id", seedId);
-
-    if (error) {
-      setMessage(error.message);
-      loadSeeds();
-    }
+    setSeeds((prev) =>
+      prev.map((seed) => {
+        const found = positions.find((pos) => pos.id === seed.id);
+        return found ? { ...seed, x: found.x, y: found.y } : seed;
+      }),
+    );
   };
 
   const getLimitedPullPosition = (
@@ -957,11 +926,33 @@ export default function BouquetPage() {
     if (distance <= MAX_PULL_DISTANCE) return current;
 
     const ratio = MAX_PULL_DISTANCE / distance;
-
     return {
       x: start.x + dx * ratio,
       y: start.y + dy * ratio,
     };
+  };
+
+  const saveSeedPositions = async (
+    positions: { id: string; x: number; y: number }[],
+  ) => {
+    const results = await Promise.all(
+      positions.map((pos) =>
+        supabase
+          .from("bouquet_seeds")
+          .update({
+            x: pos.x,
+            y: pos.y,
+          })
+          .eq("id", pos.id),
+      ),
+    );
+
+    const failed = results.find((result) => result.error);
+
+    if (failed?.error) {
+      setMessage(failed.error.message);
+      loadSeeds();
+    }
   };
 
   const animateLaunch = (
@@ -975,6 +966,7 @@ export default function BouquetPage() {
 
     let position = { ...startPosition };
     let speed = { ...velocity };
+    let latestPositions = resolveFlowerPositions(seedId, position);
 
     const step = () => {
       position = {
@@ -995,7 +987,8 @@ export default function BouquetPage() {
       speed.x *= LAUNCH_FRICTION;
       speed.y *= LAUNCH_FRICTION;
 
-      updateSeedPositionLocal(seedId, position);
+      latestPositions = resolveFlowerPositions(seedId, position);
+      updateSeedPositionsLocal(latestPositions);
 
       const currentSpeed = Math.sqrt(speed.x * speed.x + speed.y * speed.y);
 
@@ -1005,7 +998,7 @@ export default function BouquetPage() {
       }
 
       animationFrameRef.current = null;
-      saveSeedPosition(seedId, position);
+      saveSeedPositions(latestPositions);
 
       setTimeout(() => {
         dragStartedRef.current = false;
@@ -1032,10 +1025,13 @@ export default function BouquetPage() {
 
     const startPosition = getSeedPosition(seed);
 
+    draggingSeedIdRef.current = seed.id;
     dragStartedRef.current = true;
+    dragPositionRef.current = startPosition;
+
     e.currentTarget.setPointerCapture(e.pointerId);
 
-    const nextDrag: LaunchDrag = {
+    const nextDrag = {
       seedId: seed.id,
       pointerId: e.pointerId,
       start: startPosition,
@@ -1060,14 +1056,15 @@ export default function BouquetPage() {
       pointerPosition,
     );
 
-    const nextDrag: LaunchDrag = {
-      ...currentDrag,
-      current: pullPosition,
-    };
+    const nextDrag = { ...currentDrag, current: pullPosition };
 
     launchDragRef.current = nextDrag;
+    dragPositionRef.current = pullPosition;
     setLaunchDrag(nextDrag);
-    updateSeedPositionLocal(currentDrag.seedId, pullPosition);
+
+    updateSeedPositionsLocal(
+      resolveFlowerPositions(currentDrag.seedId, pullPosition),
+    );
   };
 
   const handleMoveEnd = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1082,6 +1079,8 @@ export default function BouquetPage() {
       y: (currentDrag.start.y - pullPosition.y) * LAUNCH_POWER,
     };
 
+    draggingSeedIdRef.current = null;
+    dragPositionRef.current = null;
     launchDragRef.current = null;
     setLaunchDrag(null);
 
@@ -1091,7 +1090,9 @@ export default function BouquetPage() {
     );
 
     if (pullDistance < 1) {
-      saveSeedPosition(currentDrag.seedId, pullPosition);
+      saveSeedPositions(
+        resolveFlowerPositions(currentDrag.seedId, pullPosition),
+      );
       setTimeout(() => {
         dragStartedRef.current = false;
       }, 100);
@@ -1187,12 +1188,13 @@ export default function BouquetPage() {
     if (sendingComment) return;
 
     setSendingComment(true);
+    setMessage("");
 
     const { data, error } = await supabase
       .from("seed_comments")
       .insert({
         seed_id: openedSeed.id,
-        author_id: isAnonymous ? null : loggedInUserId,
+        author_id: loggedInUserId,
         content: commentText,
         is_anonymous: isAnonymous,
       })
@@ -1342,7 +1344,6 @@ export default function BouquetPage() {
         }}
       >
         <button
-          type="button"
           onClick={() => setIsMoveMode((prev) => !prev)}
           style={{
             width: "100%",
@@ -1356,8 +1357,8 @@ export default function BouquetPage() {
           }}
         >
           {isMoveMode
-            ? "位置変更中：花を引っぱって離してください"
-            : "花の位置を変更する"}
+            ? "発射モード中：花を引っぱれます"
+            : "自分の花の位置を変更する"}
         </button>
 
         {isMoveMode && (
@@ -1370,7 +1371,7 @@ export default function BouquetPage() {
               textAlign: "center",
             }}
           >
-            自分の花を後ろに引っぱって離すと、矢印の方向に飛びます。
+            自分の花を後ろに引っぱって離してください。矢印の方向に飛びます。花同士は少し重なります。
           </p>
         )}
       </div>
@@ -1406,33 +1407,12 @@ export default function BouquetPage() {
           position: "relative",
           zIndex: 20,
           overflow: "visible",
+          // 위치 변경 모드에서도 빈 공간을 위아래로 드래그하면 페이지 스크롤이 됩니다.
+          // 실제 꽃을 잡았을 때만 각 꽃 요소에서 touchAction: none 으로 발사 조작을 막습니다.
           touchAction: isMoveMode ? "pan-y" : "auto",
         }}
       >
-        {/* 고민 씨앗 배경: 고민 화면에서 만든 씨앗을 꽃다발 뒤에 흐리게 표시합니다 */}
-        {backgroundWorrySeeds.map((seed) => {
-          const position = getBackgroundWorryPosition(seed);
-
-          return (
-            <div
-              key={`background-worry-${seed.id}`}
-              style={{
-                position: "absolute",
-                left: `${position.x}%`,
-                top: `${position.y}%`,
-                transform: "translate(-50%, -50%) scale(0.82)",
-                opacity: 0.48,
-                filter: "saturate(0.92)",
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            >
-              {renderBackgroundWorrySeed(seed)}
-            </div>
-          );
-        })}
-
-        {/* 꽃 줄기: 꽃 정중앙에서 리본 매듭까지 자연스럽게 이어집니다 */}
+        {/* 꽃 줄기: 꽃 아래에서 리본 매듭까지 자연스럽게 이어집니다 */}
         <svg
           viewBox="0 0 100 132"
           preserveAspectRatio="none"
@@ -1450,13 +1430,7 @@ export default function BouquetPage() {
           {seeds.map((seed) => {
             const position = getSeedPosition(seed);
             const tieX = 50 + (position.x - 50) * 0.08;
-
-            // 줄기는 꽃 위치의 정중앙에서 시작합니다.
-            // 실제 화면에서는 꽃이 위에 덮이기 때문에,
-            // 줄기가 꽃 중앙을 뚫고 보이지 않고 꽃 아래부터 자연스럽게 이어져 보입니다.
-            const startX = position.x;
-            const startY = position.y;
-
+            const startY = position.y + 8;
             const tieY = 108 + getStableRandom(seed.id) * 4;
             const controlX = 50 + (position.x - 50) * 0.28;
             const controlY = 82 + getStableRandom(`${seed.id}-stem`) * 9;
@@ -1464,14 +1438,14 @@ export default function BouquetPage() {
             return (
               <g key={`stem-${seed.id}`}>
                 <path
-                  d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${tieX} ${tieY}`}
+                  d={`M ${position.x} ${startY} Q ${controlX} ${controlY} ${tieX} ${tieY}`}
                   fill="none"
                   stroke="rgba(77, 124, 68, 0.56)"
                   strokeWidth="0.78"
                   strokeLinecap="round"
                 />
                 <path
-                  d={`M ${startX + 0.4} ${startY} Q ${controlX + 0.3} ${controlY} ${tieX + 0.2} ${tieY}`}
+                  d={`M ${position.x + 0.4} ${startY} Q ${controlX + 0.3} ${controlY} ${tieX + 0.2} ${tieY}`}
                   fill="none"
                   stroke="rgba(255, 255, 255, 0.24)"
                   strokeWidth="0.24"
@@ -1481,6 +1455,44 @@ export default function BouquetPage() {
             );
           })}
         </svg>
+
+        {/* 원 바깥의 줄기 묶음 */}
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "100%",
+            width: "64px",
+            height: "86px",
+            transform: "translate(-50%, 0px)",
+            pointerEvents: "none",
+            zIndex: 5,
+          }}
+        >
+          {Array.from({ length: 9 }).map((_, i) => {
+            const offset = i - 4;
+            return (
+              <div
+                key={`outside-stem-${i}`}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "0px",
+                  width: "3px",
+                  height: "86px",
+                  borderRadius: "999px",
+                  background:
+                    i % 2 === 0
+                      ? "rgba(77, 124, 68, 0.72)"
+                      : "rgba(104, 146, 84, 0.72)",
+                  transform: `translateX(${offset * 3}px) rotate(${offset * 3.5}deg)`,
+                  transformOrigin: "top center",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                }}
+              />
+            );
+          })}
+        </div>
 
         {/* 리본은 꽃 이동 원 바깥에 두고, 줄기를 묶고 있는 것처럼 보이게 합니다 */}
         <div
@@ -1585,7 +1597,6 @@ export default function BouquetPage() {
         </div>
 
         {renderLaunchArrow()}
-
         {seeds.map((seed) => {
           const position = getSeedPosition(seed);
           const movable = canMoveSeed(seed);
