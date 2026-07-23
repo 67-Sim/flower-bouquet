@@ -1430,7 +1430,8 @@ export default function BouquetPage() {
           {seeds.map((seed) => {
             const position = getSeedPosition(seed);
             const tieX = 50 + (position.x - 50) * 0.08;
-            const startY = position.y + 8;
+            const isBloomed = seed.comments.length >= 5;
+            const startY = position.y + (isBloomed ? 4.6 : 8);
             const tieY = 108 + getStableRandom(seed.id) * 4;
             const controlX = 50 + (position.x - 50) * 0.28;
             const controlY = 82 + getStableRandom(`${seed.id}-stem`) * 9;
