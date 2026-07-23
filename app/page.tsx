@@ -6,10 +6,9 @@ import { createClient } from "@/lib/supabase";
 
 const ADMIN_ID = "comany67";
 
-const SLOT_NUMBERS = [
-  ...Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
-    (num) => num !== 5285,
-  );
+const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
+  (num) => num !== 5285,
+);
 
 const SPECIAL_USER_IDS = new Set([
   "kawashima",
