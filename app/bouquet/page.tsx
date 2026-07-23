@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
@@ -53,12 +53,6 @@ type BackgroundWorrySeed = {
   comments: BackgroundWorryComment[];
 };
 
-type LaunchDrag = {
-  seedId: string;
-  pointerId: number;
-  start: { x: number; y: number };
-  current: { x: number; y: number };
-};
 
 const ADMIN_ID = "comany67";
 
@@ -157,34 +151,98 @@ const getFlowerShapeConfig = (shape: string | null | undefined) => {
   return FLOWER_SHAPES.find((item) => item.value === shape) ?? FLOWER_SHAPES[0];
 };
 
-const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
-  (num) => num !== 5285,
-);
-
-const EDGE_MARGIN = 8;
-const MIN_FLOWER_DISTANCE = 7;
-const REPULSION_ITERATIONS = 3;
-const LAUNCH_POWER = 0.22;
-const LAUNCH_FRICTION = 0.94;
-const LAUNCH_BOUNCE = 0.35;
-const LAUNCH_STOP_SPEED = 0.08;
-const MAX_PULL_DISTANCE = 20;
-
-const clamp = (value: number, min: number, max: number) => {
-  return Math.min(Math.max(value, min), max);
+type FlowerPosition = {
+  x: number;
+  y: number;
 };
 
-const getDefaultPosition = (slotNumber: number) => {
-  const index = Math.max(0, SLOT_NUMBERS.indexOf(slotNumber));
-  const columns = 5;
-  const rows = Math.ceil(SLOT_NUMBERS.length / columns);
-  const col = index % columns;
-  const row = Math.floor(index / columns);
+const SPECIAL_BOTTOM_ORDER = [
+  "kawashima",
+  "oyama",
+  "simizu",
+  "oosawa",
+  "imade",
+  "kosaka",
+] as const;
 
-  return {
-    x: ((col + 0.5) / columns) * 100,
-    y: ((row + 0.5) / rows) * 100,
-  };
+// 새로 추가한 6명은 꽃다발 아래쪽에 반원 형태로 고정합니다.
+const SPECIAL_BOTTOM_POSITIONS: Record<string, FlowerPosition> = {
+  kawashima: { x: 29, y: 84 },
+  oyama: { x: 36, y: 77 },
+  simizu: { x: 45, y: 73 },
+  oosawa: { x: 55, y: 73 },
+  imade: { x: 64, y: 77 },
+  kosaka: { x: 71, y: 84 },
+};
+
+// 기존 40명은 아래에서 위로 갈수록 넓어지는 꽃다발 모양으로 고정합니다.
+const STANDARD_BOUQUET_ROWS = [
+  { count: 6, y: 66, width: 52 },
+  { count: 7, y: 54, width: 64 },
+  { count: 8, y: 42, width: 74 },
+  { count: 9, y: 30, width: 84 },
+  { count: 10, y: 17, width: 90 },
+] as const;
+
+const buildFixedBouquetLayout = (
+  seeds: BouquetSeed[],
+): Record<string, FlowerPosition> => {
+  const positions: Record<string, FlowerPosition> = {};
+
+  // 신규 6명은 owner_id 기준으로 항상 같은 위치에 둡니다.
+  for (const ownerId of SPECIAL_BOTTOM_ORDER) {
+    const seed = seeds.find((item) => item.owner_id === ownerId);
+    const position = SPECIAL_BOTTOM_POSITIONS[ownerId];
+
+    if (seed && position) {
+      positions[seed.id] = position;
+    }
+  }
+
+  const specialOwnerIds = new Set<string>(SPECIAL_BOTTOM_ORDER);
+
+  const standardSeeds = [...seeds]
+    .filter((seed) => !specialOwnerIds.has(seed.owner_id))
+    .sort((a, b) => a.slot_number - b.slot_number);
+
+  let cursor = 0;
+
+  for (const row of STANDARD_BOUQUET_ROWS) {
+    const rowSeeds = standardSeeds.slice(cursor, cursor + row.count);
+    cursor += row.count;
+
+    rowSeeds.forEach((seed, index) => {
+      const ratio =
+        rowSeeds.length <= 1 ? 0.5 : index / (rowSeeds.length - 1);
+
+      // 행의 양 끝을 조금 아래로 내려 둥근 꽃다발 실루엣을 만듭니다.
+      const normalizedFromCenter = Math.abs(ratio - 0.5) * 2;
+      const arcOffset = normalizedFromCenter ** 2 * 3.2;
+
+      positions[seed.id] = {
+        x:
+          rowSeeds.length <= 1
+            ? 50
+            : 50 - row.width / 2 + ratio * row.width,
+        y: row.y + arcOffset,
+      };
+    });
+  }
+
+  // 앞으로 인원이 더 늘어나더라도 화면 중앙 상단에 안전하게 배치합니다.
+  const remainingSeeds = standardSeeds.slice(cursor);
+
+  remainingSeeds.forEach((seed, index) => {
+    const count = Math.max(remainingSeeds.length, 1);
+    const ratio = count <= 1 ? 0.5 : index / (count - 1);
+
+    positions[seed.id] = {
+      x: 10 + ratio * 80,
+      y: 9,
+    };
+  });
+
+  return positions;
 };
 
 function formatDateTime(value: string) {
@@ -211,13 +269,6 @@ export default function BouquetPage() {
   const supabase = createClient();
   const router = useRouter();
 
-  const gardenRef = useRef<HTMLDivElement | null>(null);
-  const draggingSeedIdRef = useRef<string | null>(null);
-  const dragPositionRef = useRef<{ x: number; y: number } | null>(null);
-  const dragStartedRef = useRef(false);
-  const launchDragRef = useRef<LaunchDrag | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-
   const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
   const [seeds, setSeeds] = useState<BouquetSeed[]>([]);
   const [backgroundWorrySeeds, setBackgroundWorrySeeds] = useState<
@@ -233,8 +284,6 @@ export default function BouquetPage() {
   const [message, setMessage] = useState("");
   const [savingSeed, setSavingSeed] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
-  const [isMoveMode, setIsMoveMode] = useState(false);
-  const [launchDrag, setLaunchDrag] = useState<LaunchDrag | null>(null);
 
   const isAdmin = loggedInUserId === ADMIN_ID;
 
@@ -248,6 +297,11 @@ export default function BouquetPage() {
   );
 
   const canViewComments = Boolean(isOwner || isAdmin);
+
+  const fixedBouquetPositions = useMemo(
+    () => buildFixedBouquetLayout(seeds),
+    [seeds],
+  );
 
   const getOwnerName = (owner: JoinedOwner) => {
     if (Array.isArray(owner)) {
@@ -269,19 +323,13 @@ export default function BouquetPage() {
     return getOwnerName(seed.owner ?? null)?.trim() || seed.owner_id;
   };
 
-  const getSeedPosition = (seed: BouquetSeed) => {
-    const fallback = getDefaultPosition(seed.slot_number);
-
-    return {
-      x: typeof seed.x === "number" ? seed.x : fallback.x,
-      y: typeof seed.y === "number" ? seed.y : fallback.y,
-    };
+  const getSeedPosition = (seed: BouquetSeed): FlowerPosition => {
+    return fixedBouquetPositions[seed.id] ?? { x: 50, y: 50 };
   };
 
-  const canMoveSeed = (seed: BouquetSeed) => {
-    return Boolean(
-      loggedInUserId && (String(seed.owner_id) === String(loggedInUserId) || isAdmin),
-    );
+  const getDisplayNameWithSan = (seed: BouquetSeed) => {
+    const name = getDisplayName(seed);
+    return name.endsWith("さん") ? name : `${name}さん`;
   };
 
   const getCommentAuthorLabel = (comment: SeedComment) => {
@@ -834,8 +882,6 @@ export default function BouquetPage() {
   }, []);
 
   const handleSlotClick = (slotNumber: number) => {
-    if (isMoveMode || dragStartedRef.current || launchDragRef.current) return;
-
     const seed = seeds.find((item) => item.slot_number === slotNumber);
     if (!seed) return;
 
@@ -845,305 +891,6 @@ export default function BouquetPage() {
     setEditTitle(seed.title || "");
     setEditColor(seed.flower_color || FLOWER_COLORS[0]);
     setEditShape(seed.flower_shape || DEFAULT_FLOWER_SHAPE);
-  };
-
-  const getPositionFromPointer = (clientX: number, clientY: number) => {
-    const garden = gardenRef.current;
-    if (!garden) return null;
-
-    const rect = garden.getBoundingClientRect();
-
-    return {
-      x: clamp(
-        ((clientX - rect.left) / rect.width) * 100,
-        EDGE_MARGIN,
-        100 - EDGE_MARGIN,
-      ),
-      y: clamp(
-        ((clientY - rect.top) / rect.height) * 100,
-        EDGE_MARGIN,
-        100 - EDGE_MARGIN,
-      ),
-    };
-  };
-
-  const resolveFlowerPositions = (
-    movingSeedId: string,
-    movingPosition: { x: number; y: number },
-  ) => {
-    const positions = seeds.map((seed) => ({
-      id: seed.id,
-      x: seed.id === movingSeedId ? movingPosition.x : getSeedPosition(seed).x,
-      y: seed.id === movingSeedId ? movingPosition.y : getSeedPosition(seed).y,
-    }));
-
-    for (let loop = 0; loop < REPULSION_ITERATIONS; loop++) {
-      for (let i = 0; i < positions.length; i++) {
-        for (let j = i + 1; j < positions.length; j++) {
-          const a = positions[i];
-          const b = positions[j];
-
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const distance = Math.sqrt(dx * dx + dy * dy) || 0.001;
-
-          if (distance < MIN_FLOWER_DISTANCE) {
-            const push = (MIN_FLOWER_DISTANCE - distance) / 2;
-            const nx = dx / distance;
-            const ny = dy / distance;
-
-            a.x = clamp(a.x - nx * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
-            a.y = clamp(a.y - ny * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
-            b.x = clamp(b.x + nx * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
-            b.y = clamp(b.y + ny * push, EDGE_MARGIN, 100 - EDGE_MARGIN);
-          }
-        }
-      }
-    }
-
-    return positions;
-  };
-
-  const updateSeedPositionsLocal = (
-    positions: { id: string; x: number; y: number }[],
-  ) => {
-    setSeeds((prev) =>
-      prev.map((seed) => {
-        const found = positions.find((pos) => pos.id === seed.id);
-        return found ? { ...seed, x: found.x, y: found.y } : seed;
-      }),
-    );
-  };
-
-  const getLimitedPullPosition = (
-    start: { x: number; y: number },
-    current: { x: number; y: number },
-  ) => {
-    const dx = current.x - start.x;
-    const dy = current.y - start.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance <= MAX_PULL_DISTANCE) return current;
-
-    const ratio = MAX_PULL_DISTANCE / distance;
-    return {
-      x: start.x + dx * ratio,
-      y: start.y + dy * ratio,
-    };
-  };
-
-  const saveSeedPositions = async (
-    positions: { id: string; x: number; y: number }[],
-  ) => {
-    const results = await Promise.all(
-      positions.map((pos) =>
-        supabase
-          .from("bouquet_seeds")
-          .update({
-            x: pos.x,
-            y: pos.y,
-          })
-          .eq("id", pos.id),
-      ),
-    );
-
-    const failed = results.find((result) => result.error);
-
-    if (failed?.error) {
-      setMessage(failed.error.message);
-      loadSeeds();
-    }
-  };
-
-  const animateLaunch = (
-    seedId: string,
-    startPosition: { x: number; y: number },
-    velocity: { x: number; y: number },
-  ) => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-
-    let position = { ...startPosition };
-    let speed = { ...velocity };
-    let latestPositions = resolveFlowerPositions(seedId, position);
-
-    const step = () => {
-      position = {
-        x: position.x + speed.x,
-        y: position.y + speed.y,
-      };
-
-      if (position.x <= EDGE_MARGIN || position.x >= 100 - EDGE_MARGIN) {
-        speed.x *= -LAUNCH_BOUNCE;
-        position.x = clamp(position.x, EDGE_MARGIN, 100 - EDGE_MARGIN);
-      }
-
-      if (position.y <= EDGE_MARGIN || position.y >= 100 - EDGE_MARGIN) {
-        speed.y *= -LAUNCH_BOUNCE;
-        position.y = clamp(position.y, EDGE_MARGIN, 100 - EDGE_MARGIN);
-      }
-
-      speed.x *= LAUNCH_FRICTION;
-      speed.y *= LAUNCH_FRICTION;
-
-      latestPositions = resolveFlowerPositions(seedId, position);
-      updateSeedPositionsLocal(latestPositions);
-
-      const currentSpeed = Math.sqrt(speed.x * speed.x + speed.y * speed.y);
-
-      if (currentSpeed > LAUNCH_STOP_SPEED) {
-        animationFrameRef.current = requestAnimationFrame(step);
-        return;
-      }
-
-      animationFrameRef.current = null;
-      saveSeedPositions(latestPositions);
-
-      setTimeout(() => {
-        dragStartedRef.current = false;
-      }, 100);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(step);
-  };
-
-  const handleMoveStart = (
-    e: React.PointerEvent<HTMLDivElement>,
-    seed: BouquetSeed,
-  ) => {
-    if (!isMoveMode) return;
-    if (!canMoveSeed(seed)) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-
-    const startPosition = getSeedPosition(seed);
-
-    draggingSeedIdRef.current = seed.id;
-    dragStartedRef.current = true;
-    dragPositionRef.current = startPosition;
-
-    e.currentTarget.setPointerCapture(e.pointerId);
-
-    const nextDrag = {
-      seedId: seed.id,
-      pointerId: e.pointerId,
-      start: startPosition,
-      current: startPosition,
-    };
-
-    launchDragRef.current = nextDrag;
-    setLaunchDrag(nextDrag);
-  };
-
-  const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const currentDrag = launchDragRef.current;
-    if (!currentDrag || currentDrag.pointerId !== e.pointerId) return;
-
-    e.preventDefault();
-
-    const pointerPosition = getPositionFromPointer(e.clientX, e.clientY);
-    if (!pointerPosition) return;
-
-    const pullPosition = getLimitedPullPosition(
-      currentDrag.start,
-      pointerPosition,
-    );
-
-    const nextDrag = { ...currentDrag, current: pullPosition };
-
-    launchDragRef.current = nextDrag;
-    dragPositionRef.current = pullPosition;
-    setLaunchDrag(nextDrag);
-
-    updateSeedPositionsLocal(
-      resolveFlowerPositions(currentDrag.seedId, pullPosition),
-    );
-  };
-
-  const handleMoveEnd = (e: React.PointerEvent<HTMLDivElement>) => {
-    const currentDrag = launchDragRef.current;
-    if (!currentDrag || currentDrag.pointerId !== e.pointerId) return;
-
-    e.preventDefault();
-
-    const pullPosition = currentDrag.current;
-    const velocity = {
-      x: (currentDrag.start.x - pullPosition.x) * LAUNCH_POWER,
-      y: (currentDrag.start.y - pullPosition.y) * LAUNCH_POWER,
-    };
-
-    draggingSeedIdRef.current = null;
-    dragPositionRef.current = null;
-    launchDragRef.current = null;
-    setLaunchDrag(null);
-
-    const pullDistance = Math.sqrt(
-      (currentDrag.start.x - pullPosition.x) ** 2 +
-        (currentDrag.start.y - pullPosition.y) ** 2,
-    );
-
-    if (pullDistance < 1) {
-      saveSeedPositions(
-        resolveFlowerPositions(currentDrag.seedId, pullPosition),
-      );
-      setTimeout(() => {
-        dragStartedRef.current = false;
-      }, 100);
-      return;
-    }
-
-    animateLaunch(currentDrag.seedId, pullPosition, velocity);
-  };
-
-  const renderLaunchArrow = () => {
-    if (!launchDrag) return null;
-
-    const dx = launchDrag.start.x - launchDrag.current.x;
-    const dy = launchDrag.start.y - launchDrag.current.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance < 1) return null;
-
-    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-    const arrowLength = clamp(distance * 1.8, 8, 28);
-
-    return (
-      <div
-        style={{
-          position: "absolute",
-          left: `${launchDrag.current.x}%`,
-          top: `${launchDrag.current.y}%`,
-          width: `${arrowLength}%`,
-          height: "0px",
-          transform: `rotate(${angle}deg)`,
-          transformOrigin: "0 50%",
-          borderTop: "4px solid rgba(122, 93, 70, 0.78)",
-          filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.16))",
-          pointerEvents: "none",
-          zIndex: 900,
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            right: "-2px",
-            top: "-9px",
-            width: 0,
-            height: 0,
-            borderTop: "7px solid transparent",
-            borderBottom: "7px solid transparent",
-            borderLeft: "12px solid rgba(122, 93, 70, 0.78)",
-          }}
-        />
-      </div>
-    );
   };
 
   const handleSaveSeedSettings = async () => {
@@ -1334,48 +1081,6 @@ export default function BouquetPage() {
         </button>
       </div>
 
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          marginBottom: "12px",
-          position: "relative",
-          zIndex: 20,
-        }}
-      >
-        <button
-          onClick={() => setIsMoveMode((prev) => !prev)}
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: "12px",
-            border: isMoveMode ? "2px solid #7a6b5d" : "1px solid #d8cbbd",
-            backgroundColor: isMoveMode ? "#fff1c7" : "#fff",
-            color: "#2f2a25",
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          {isMoveMode
-            ? "発射モード中：花を引っぱれます"
-            : "自分の花の位置を変更する"}
-        </button>
-
-        {isMoveMode && (
-          <p
-            style={{
-              margin: "8px 0 0",
-              fontSize: "12px",
-              color: "#7a6b5d",
-              lineHeight: 1.5,
-              textAlign: "center",
-            }}
-          >
-            自分の花を後ろに引っぱって離してください。矢印の方向に飛びます。花同士は少し重なります。
-          </p>
-        )}
-      </div>
-
       {message && (
         <p
           style={{
@@ -1394,7 +1099,6 @@ export default function BouquetPage() {
       )}
 
       <div
-        ref={gardenRef}
         style={{
           width: "100%",
           maxWidth: "420px",
@@ -1407,9 +1111,7 @@ export default function BouquetPage() {
           position: "relative",
           zIndex: 20,
           overflow: "visible",
-          // 위치 변경 모드에서도 빈 공간을 위아래로 드래그하면 페이지 스크롤이 됩니다.
-          // 실제 꽃을 잡았을 때만 각 꽃 요소에서 touchAction: none 으로 발사 조작을 막습니다.
-          touchAction: isMoveMode ? "pan-y" : "auto",
+          touchAction: "auto",
         }}
       >
         {/* 꽃 줄기: 꽃 아래에서 리본 매듭까지 자연스럽게 이어집니다 */}
@@ -1561,32 +1263,22 @@ export default function BouquetPage() {
           </div>
         </div>
 
-        {renderLaunchArrow()}
         {seeds.map((seed) => {
           const position = getSeedPosition(seed);
-          const movable = canMoveSeed(seed);
-          const commentCount = seed.comments.length;
 
           return (
             <div
               key={seed.id}
               onClick={() => handleSlotClick(seed.slot_number)}
-              onPointerDown={(e) => handleMoveStart(e, seed)}
-              onPointerMove={handleMove}
-              onPointerUp={handleMoveEnd}
-              onPointerCancel={handleMoveEnd}
               style={{
                 position: "absolute",
                 left: `${position.x}%`,
                 top: `${position.y}%`,
                 transform: "translate(-50%, -50%)",
-                cursor: isMoveMode && movable ? "grab" : "pointer",
-                opacity: isMoveMode && !movable ? 0.35 : 1,
-                zIndex:
-                  isMoveMode && movable
-                    ? 500
-                    : 200 - Math.min(commentCount, 100),
-                touchAction: isMoveMode ? "none" : "auto",
+                cursor: "pointer",
+                // 아래쪽 꽃일수록 앞에 보이게 해서 꽃다발의 깊이감을 줍니다.
+                zIndex: 200 + Math.round(position.y),
+                touchAction: "auto",
                 userSelect: "none",
               }}
             >
@@ -1645,7 +1337,7 @@ export default function BouquetPage() {
                 textAlign: "center",
               }}
             >
-              {getDisplayName(openedSeed)}さんの種
+              {getDisplayNameWithSan(openedSeed)}の種
             </p>
 
             <h2
