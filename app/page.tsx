@@ -15,7 +15,7 @@ const SPECIAL_USER_IDS = new Set([
   "oyama",
   "simizu",
   "oosawa",
-  "mizuide",
+  "imade",
   "kosaka",
 ]);
 
