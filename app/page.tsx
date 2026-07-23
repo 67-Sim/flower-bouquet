@@ -6,9 +6,19 @@ import { createClient } from "@/lib/supabase";
 
 const ADMIN_ID = "comany67";
 
-const SLOT_NUMBERS = Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
-  (num) => num !== 5285,
-);
+const SLOT_NUMBERS = [
+  ...Array.from({ length: 41 }, (_, i) => 5260 + i).filter(
+    (num) => num !== 5285,
+  );
+
+const SPECIAL_USER_IDS = new Set([
+  "kawashima",
+  "oyama",
+  "simizu",
+  "oosawa",
+  "mizuide",
+  "kosaka",
+]);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,27 +37,35 @@ export default function LoginPage() {
   }, []);
 
   const validateUserId = () => {
-    const trimmedUserId = userId.trim();
+    const trimmedUserId = userId.trim().toLowerCase();
 
     if (!trimmedUserId) {
-      setMessage("番号を入力してください。");
+      setMessage("番号またはIDを入力してください。");
       return null;
     }
 
-    if (trimmedUserId === ADMIN_ID) {
+   if (trimmedUserId === ADMIN_ID) {
       return { trimmedUserId, isAdmin: true };
     }
 
+    // 새로 추가된 문자 ID
+   if (SPECIAL_USER_IDS.has(trimmedUserId)) {
+      return { trimmedUserId, isAdmin: false };
+    }
+
+   // 기존 숫자 ID
     const slotNumber = Number(trimmedUserId);
 
-    if (!Number.isInteger(slotNumber)) {
-      setMessage("4桁の番号を入力してください。");
-      return null;
+   if (!Number.isInteger(slotNumber)) {
+     setMessage("4桁の番号、または登録済みIDを入力してください。");
+     return null;
     }
 
     if (!SLOT_NUMBERS.includes(slotNumber)) {
-      setMessage("使える番号は5260〜5300です。5285は使えません。");
-      return null;
+     setMessage(
+       "使える番号は5260〜5300（5285除外）、または登録済みIDです。"
+      );
+     return null;
     }
 
     return { trimmedUserId, isAdmin: false };
@@ -232,7 +250,8 @@ export default function LoginPage() {
             setMessage("");
           }}
           placeholder="番号 例：5261"
-          inputMode="numeric"
+          inputMode="text"
+          autoCorrect="off"
           style={inputStyle}
         />
 
