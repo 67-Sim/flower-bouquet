@@ -1459,44 +1459,6 @@ export default function BouquetPage() {
           })}
         </svg>
 
-        {/* 원 바깥의 줄기 묶음 */}
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "100%",
-            width: "64px",
-            height: "86px",
-            transform: "translate(-50%, 0px)",
-            pointerEvents: "none",
-            zIndex: 5,
-          }}
-        >
-          {Array.from({ length: 9 }).map((_, i) => {
-            const offset = i - 4;
-            return (
-              <div
-                key={`outside-stem-${i}`}
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "0px",
-                  width: "3px",
-                  height: "86px",
-                  borderRadius: "999px",
-                  background:
-                    i % 2 === 0
-                      ? "rgba(77, 124, 68, 0.72)"
-                      : "rgba(104, 146, 84, 0.72)",
-                  transform: `translateX(${offset * 3}px) rotate(${offset * 3.5}deg)`,
-                  transformOrigin: "top center",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-                }}
-              />
-            );
-          })}
-        </div>
-
         {/* 리본은 꽃 이동 원 바깥에 두고, 줄기를 묶고 있는 것처럼 보이게 합니다 */}
         <div
           style={{
